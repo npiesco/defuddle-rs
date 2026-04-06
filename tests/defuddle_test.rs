@@ -11,6 +11,56 @@ fn fixture(name: &str) -> String {
     std::fs::read_to_string(&path).unwrap_or_else(|e| panic!("fixture {name}: {e}"))
 }
 
+/// Compare our markdown output to defuddle CLI's expected output.
+/// Returns (coverage_pct, missing_lines).
+fn parity_check(ours: &str, expected: &str) -> (f64, Vec<String>) {
+    let our_lines: Vec<&str> = ours
+        .lines()
+        .map(|l| l.trim())
+        .filter(|l| !l.is_empty())
+        .collect();
+    let expected_lines: Vec<&str> = expected
+        .lines()
+        .map(|l| l.trim())
+        .filter(|l| !l.is_empty())
+        .collect();
+
+    if expected_lines.is_empty() {
+        return (1.0, vec![]);
+    }
+
+    let mut missing = Vec::new();
+    for exp_line in &expected_lines {
+        let found = our_lines
+            .iter()
+            .any(|our| our.contains(exp_line) || exp_line.contains(our));
+        if !found {
+            missing.push(exp_line.to_string());
+        }
+    }
+
+    let coverage = 1.0 - (missing.len() as f64 / expected_lines.len() as f64);
+    (coverage, missing)
+}
+
+fn assert_parity(name: &str, ours: &str, expected: &str, min_coverage: f64) {
+    let (coverage, missing) = parity_check(ours, expected);
+    assert!(
+        coverage >= min_coverage,
+        "{name}: content parity is {:.0}% (need {:.0}%), {}/{} lines missing:\n{}",
+        coverage * 100.0,
+        min_coverage * 100.0,
+        missing.len(),
+        expected.lines().filter(|l| !l.trim().is_empty()).count(),
+        missing
+            .iter()
+            .take(15)
+            .cloned()
+            .collect::<Vec<_>>()
+            .join("\n"),
+    );
+}
+
 // ── example.com — simplest possible page ────────────────────────────────────
 
 #[test]
@@ -122,46 +172,164 @@ fn rust_blog_markdown_parity_with_defuddle() {
     let expected = fixture("rust_blog.expected.md");
     let result =
         Defuddle::parse(&html, "https://blog.rust-lang.org/2024/02/08/Rust-1.76.0/").unwrap();
+    assert_parity("rust_blog", &result.content_markdown, &expected, 0.80);
+}
 
-    // Compare key content sections rather than exact match
-    // (whitespace differences are acceptable)
-    let our_lines: Vec<&str> = result
-        .content_markdown
-        .lines()
-        .map(|l| l.trim())
-        .filter(|l| !l.is_empty())
-        .collect();
-    let expected_lines: Vec<&str> = expected
-        .lines()
-        .map(|l| l.trim())
-        .filter(|l| !l.is_empty())
-        .collect();
+// ── MDN (tables, structured docs) ───────────────────────────────────────────
 
-    // Every substantive line from defuddle's output should appear in ours
-    let mut missing = Vec::new();
-    for exp_line in &expected_lines {
-        if !our_lines
-            .iter()
-            .any(|our| our.contains(exp_line) || exp_line.contains(our))
-        {
-            missing.push(*exp_line);
-        }
-    }
-
-    let coverage = 1.0 - (missing.len() as f64 / expected_lines.len() as f64);
+#[test]
+fn mdn_table_extracts_content() {
+    let html = fixture("mdn_table.html");
+    let result = Defuddle::parse(
+        &html,
+        "https://developer.mozilla.org/en-US/docs/Web/HTML/Element/table",
+    )
+    .unwrap();
     assert!(
-        coverage >= 0.80,
-        "content parity is {:.0}% ({} of {} lines missing):\n{}",
-        coverage * 100.0,
-        missing.len(),
-        expected_lines.len(),
-        missing
-            .iter()
-            .take(10)
-            .cloned()
-            .collect::<Vec<_>>()
-            .join("\n"),
+        !result.content_markdown.is_empty(),
+        "should extract content"
     );
+    assert!(
+        result.content_markdown.to_lowercase().contains("table"),
+        "should mention 'table'"
+    );
+}
+
+#[test]
+fn mdn_table_parity() {
+    let html = fixture("mdn_table.html");
+    let expected = fixture("mdn_table.expected.md");
+    let result = Defuddle::parse(
+        &html,
+        "https://developer.mozilla.org/en-US/docs/Web/HTML/Element/table",
+    )
+    .unwrap();
+    assert_parity("mdn_table", &result.content_markdown, &expected, 0.50);
+}
+
+// ── HackerNews (thread, comments) ───────────────────────────────────────────
+
+#[test]
+fn hackernews_extracts_content() {
+    let html = fixture("hackernews.html");
+    let result = Defuddle::parse(&html, "https://news.ycombinator.com/item?id=39232976").unwrap();
+    assert!(
+        !result.content_markdown.is_empty(),
+        "should extract content"
+    );
+}
+
+#[test]
+fn hackernews_parity() {
+    let html = fixture("hackernews.html");
+    let expected = fixture("hackernews.expected.md");
+    let result = Defuddle::parse(&html, "https://news.ycombinator.com/item?id=39232976").unwrap();
+    assert_parity("hackernews", &result.content_markdown, &expected, 0.40);
+}
+
+// ── fasterthanlime (long article, code blocks, nested lists) ────────────────
+
+#[test]
+fn fasterthanlime_extracts_content() {
+    let html = fixture("fasterthanlime.html");
+    let result = Defuddle::parse(
+        &html,
+        "https://fasterthanli.me/articles/a-half-hour-to-learn-rust",
+    )
+    .unwrap();
+    assert!(!result.content_markdown.is_empty());
+    assert!(
+        result.content_markdown.contains("let") || result.content_markdown.contains("fn "),
+        "should contain Rust code snippets"
+    );
+}
+
+#[test]
+fn fasterthanlime_parity() {
+    let html = fixture("fasterthanlime.html");
+    let expected = fixture("fasterthanlime.expected.md");
+    let result = Defuddle::parse(
+        &html,
+        "https://fasterthanli.me/articles/a-half-hour-to-learn-rust",
+    )
+    .unwrap();
+    assert_parity("fasterthanlime", &result.content_markdown, &expected, 0.50);
+}
+
+// ── Wikipedia (heavy structure, footnotes, tables, images, infobox) ─────────
+
+#[test]
+fn wikipedia_extracts_content() {
+    let html = fixture("wikipedia_rust.html");
+    let result = Defuddle::parse(
+        &html,
+        "https://en.wikipedia.org/wiki/Rust_(programming_language)",
+    )
+    .unwrap();
+    assert!(!result.content_markdown.is_empty());
+    assert!(
+        result.content_markdown.contains("Rust"),
+        "should mention Rust"
+    );
+}
+
+#[test]
+fn wikipedia_parity() {
+    let html = fixture("wikipedia_rust.html");
+    let expected = fixture("wikipedia_rust.expected.md");
+    let result = Defuddle::parse(
+        &html,
+        "https://en.wikipedia.org/wiki/Rust_(programming_language)",
+    )
+    .unwrap();
+    assert_parity("wikipedia", &result.content_markdown, &expected, 0.40);
+}
+
+// ── GitHub (README, repo page) ──────────────────────────────────────────────
+
+#[test]
+fn github_tokio_extracts_content() {
+    let html = fixture("github_tokio.html");
+    let result = Defuddle::parse(&html, "https://github.com/tokio-rs/tokio").unwrap();
+    assert!(!result.content_markdown.is_empty());
+}
+
+#[test]
+fn github_tokio_parity() {
+    let html = fixture("github_tokio.html");
+    let expected = fixture("github_tokio.expected.md");
+    let result = Defuddle::parse(&html, "https://github.com/tokio-rs/tokio").unwrap();
+    assert_parity("github_tokio", &result.content_markdown, &expected, 0.50);
+}
+
+// ── Joel on Software (classic blog, ads, sidebar) ───────────────────────────
+
+#[test]
+fn joel_test_extracts_content() {
+    let html = fixture("joel_test.html");
+    let result = Defuddle::parse(
+        &html,
+        "https://www.joelonsoftware.com/2000/08/09/the-joel-test-12-steps-to-better-code/",
+    )
+    .unwrap();
+    assert!(!result.content_markdown.is_empty());
+    assert!(
+        result.content_markdown.contains("Joel Test")
+            || result.content_markdown.contains("software team"),
+        "should contain article content"
+    );
+}
+
+#[test]
+fn joel_test_parity() {
+    let html = fixture("joel_test.html");
+    let expected = fixture("joel_test.expected.md");
+    let result = Defuddle::parse(
+        &html,
+        "https://www.joelonsoftware.com/2000/08/09/the-joel-test-12-steps-to-better-code/",
+    )
+    .unwrap();
+    assert_parity("joel_test", &result.content_markdown, &expected, 0.50);
 }
 
 // ── Metadata extraction ─────────────────────────────────────────────────────
