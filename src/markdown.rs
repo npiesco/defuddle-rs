@@ -225,25 +225,28 @@ fn convert_table(element: &ElementRef, output: &mut String) {
 }
 
 fn collapse_whitespace(text: &str) -> String {
+    // Replace any run of 3+ newlines with exactly 2
     let mut result = String::with_capacity(text.len());
-    let mut prev_blank = false;
+    let mut newline_count = 0usize;
 
-    for line in text.lines() {
-        let trimmed = line.trim_end();
-        if trimmed.is_empty() {
-            if !prev_blank {
-                result.push('\n');
-                prev_blank = true;
+    for ch in text.chars() {
+        if ch == '\n' {
+            newline_count += 1;
+            if newline_count <= 2 {
+                result.push(ch);
             }
         } else {
-            if prev_blank {
-                result.push('\n');
-            }
-            result.push_str(trimmed);
-            result.push('\n');
-            prev_blank = false;
+            newline_count = 0;
+            result.push(ch);
         }
     }
 
-    result.trim().to_string()
+    // Also trim trailing whitespace per line and overall
+    result
+        .lines()
+        .map(|l| l.trim_end())
+        .collect::<Vec<_>>()
+        .join("\n")
+        .trim()
+        .to_string()
 }

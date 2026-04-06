@@ -86,8 +86,7 @@ impl Defuddle {
         }
 
         // 3. Generic extraction: score, remove clutter, extract main content
-        let cleaned_html = Self::generic_extract(html, &parsed_url)?;
-        let word_count = count_words(&cleaned_html);
+        let (cleaned_html, word_count) = Self::generic_extract(html, &parsed_url, &meta.title)?;
         let content_markdown = markdown::html_to_markdown(&cleaned_html);
 
         Ok(DefuddleResult {
@@ -112,7 +111,12 @@ impl Defuddle {
     }
 
     /// Generic content extraction for pages without a site-specific extractor.
-    fn generic_extract(html: &str, _url: &Url) -> Result<String, DefuddleError> {
+    /// Returns (cleaned_html_without_title, word_count_including_title).
+    fn generic_extract(
+        html: &str,
+        _url: &Url,
+        title: &str,
+    ) -> Result<(String, usize), DefuddleError> {
         let _document = Html::parse_document(html);
 
         // Remove hidden elements, nav, ads, etc.
@@ -121,10 +125,37 @@ impl Defuddle {
         // Score remaining elements and find the main content
         let main_content = scoring::find_main_content(&cleaned);
 
-        // Standardize elements (code blocks, etc.)
-        let standardized = standardize::standardize(&main_content);
+        // Count words from full content (including title heading)
+        let word_count = count_words(&main_content);
 
-        Ok(standardized)
+        // Remove the first <h1> that matches the page title (defuddle behavior:
+        // title is extracted as metadata, not duplicated in content)
+        let without_title_h1 = Self::strip_title_heading(&main_content, title);
+
+        // Standardize elements (code blocks, etc.)
+        let standardized = standardize::standardize(&without_title_h1);
+
+        Ok((standardized, word_count))
+    }
+
+    /// Remove the first <h1> whose text matches the page title.
+    fn strip_title_heading(html: &str, title: &str) -> String {
+        let doc = Html::parse_fragment(html);
+        if let Ok(sel) = scraper::Selector::parse("h1") {
+            for el in doc.select(&sel) {
+                let h1_text: String = el.text().collect::<String>();
+                let h1_trimmed = h1_text.trim();
+                let title_trimmed = title.trim();
+                if h1_trimmed == title_trimmed
+                    || title_trimmed.starts_with(h1_trimmed)
+                    || h1_trimmed.starts_with(title_trimmed)
+                {
+                    let h1_html = el.html();
+                    return html.replacen(&h1_html, "", 1);
+                }
+            }
+        }
+        html.to_string()
     }
 }
 
