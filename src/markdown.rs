@@ -33,35 +33,25 @@ fn convert_node(element: &ElementRef, output: &mut String, depth: usize) {
                 if let Some(child_ref) = ElementRef::wrap(child) {
                     let tag = el.name.local.as_ref();
                     match tag {
-                        "h1" => {
-                            output.push_str("\n\n# ");
-                            convert_node(&child_ref, output, depth);
-                            output.push_str("\n\n");
-                        }
-                        "h2" => {
-                            output.push_str("\n\n## ");
-                            convert_node(&child_ref, output, depth);
-                            output.push_str("\n\n");
-                        }
-                        "h3" => {
-                            output.push_str("\n\n### ");
-                            convert_node(&child_ref, output, depth);
-                            output.push_str("\n\n");
-                        }
-                        "h4" => {
-                            output.push_str("\n\n#### ");
-                            convert_node(&child_ref, output, depth);
-                            output.push_str("\n\n");
-                        }
-                        "h5" => {
-                            output.push_str("\n\n##### ");
-                            convert_node(&child_ref, output, depth);
-                            output.push_str("\n\n");
-                        }
-                        "h6" => {
-                            output.push_str("\n\n###### ");
-                            convert_node(&child_ref, output, depth);
-                            output.push_str("\n\n");
+                        "h1" | "h2" | "h3" | "h4" | "h5" | "h6" => {
+                            let prefix = match tag {
+                                "h1" => "#",
+                                "h2" => "##",
+                                "h3" => "###",
+                                "h4" => "####",
+                                "h5" => "#####",
+                                "h6" => "######",
+                                _ => "#",
+                            };
+                            // Collect heading text, collapsing whitespace
+                            let heading_text: String = child_ref.text().collect();
+                            let clean = heading_text
+                                .split_whitespace()
+                                .collect::<Vec<_>>()
+                                .join(" ");
+                            if !clean.is_empty() {
+                                output.push_str(&format!("\n\n{} {}\n\n", prefix, clean));
+                            }
                         }
                         "p" => {
                             output.push_str("\n\n");
@@ -115,12 +105,22 @@ fn convert_node(element: &ElementRef, output: &mut String, depth: usize) {
                         }
                         "a" => {
                             let href = el.attr("href").unwrap_or("");
-                            if href.is_empty() || href.starts_with("javascript:") {
+                            let aria_hidden = el.attr("aria-hidden").unwrap_or("") == "true";
+                            // Skip anchor-only links and aria-hidden anchors
+                            if href.is_empty() || href.starts_with("javascript:") || aria_hidden {
                                 convert_node(&child_ref, output, depth);
                             } else {
-                                output.push('[');
-                                convert_node(&child_ref, output, depth);
-                                output.push_str(&format!("]({})", href));
+                                let link_text = {
+                                    let mut s = String::new();
+                                    convert_node(&child_ref, &mut s, depth);
+                                    s
+                                };
+                                let trimmed = link_text.trim();
+                                if trimmed.is_empty() {
+                                    // Empty link text — skip
+                                } else {
+                                    output.push_str(&format!("[{}]({})", trimmed, href));
+                                }
                             }
                         }
                         "img" => {

@@ -3,16 +3,18 @@
 //! Extract clean markdown content from web pages, stripping ads, navigation,
 //! and clutter. Produces readable markdown with metadata extraction.
 //!
-//! Architecture (clean-room from TypeScript reference):
-//! - `Defuddle::parse(html, url)` → `DefuddleResult`
-//! - `scoring` — content scoring / readability heuristics
-//! - `removals` — clutter removal (selectors, hidden elements, patterns)
-//! - `extractors` — site-specific handlers (GitHub, Reddit, YouTube, etc.)
-//! - `markdown` — HTML → Markdown conversion
-//! - `metadata` — title, author, date, description, schema.org
-//! - `elements` — standardize code blocks, footnotes, callouts, math
-//! - `fetch` — HTTP GET with reqwest
+//! Pipeline (matches defuddle's parseInternal):
+//! 1. Extract metadata (before DOM modification)
+//! 2. Try site-specific extractor
+//! 3. Find main content element (entry point selectors + scoring)
+//! 4. Remove hidden elements
+//! 5. Remove by selector (exact + partial)
+//! 6. Score and remove non-content blocks
+//! 7. Strip title h1
+//! 8. Standardize content
+//! 9. Convert to markdown
 
+pub mod constants;
 pub mod elements;
 pub mod extractors;
 pub mod fetch;
@@ -29,31 +31,20 @@ use url::Url;
 /// Result of parsing a web page.
 #[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct DefuddleResult {
-    /// Page title.
     pub title: String,
-    /// Author name, if detected.
     pub author: Option<String>,
-    /// Publication date, if detected.
     pub published: Option<String>,
-    /// Site name / domain.
     pub site: Option<String>,
-    /// Meta description.
     pub description: Option<String>,
-    /// Primary image URL.
     pub image: Option<String>,
-    /// Detected language (e.g. "en").
     pub language: Option<String>,
-    /// Cleaned HTML content.
     pub content_html: String,
-    /// Cleaned markdown content.
     pub content_markdown: String,
-    /// Word count of the cleaned content.
     pub word_count: usize,
-    /// Extracted schema.org JSON-LD data, if present.
     pub schema_org: Option<serde_json::Value>,
 }
 
-/// Main entry point — parse HTML and extract clean content.
+/// Main entry point.
 pub struct Defuddle;
 
 impl Defuddle {
@@ -85,9 +76,23 @@ impl Defuddle {
             });
         }
 
-        // 3. Generic extraction: score, remove clutter, extract main content
-        let (cleaned_html, word_count) = Self::generic_extract(html, &parsed_url, &meta.title)?;
-        let content_markdown = markdown::html_to_markdown(&cleaned_html);
+        // 3. Find main content element (entry point selectors + scoring)
+        let main_content_html = scoring::find_main_content(html);
+
+        // Count words from full content (including title heading) — matches defuddle
+        let word_count = count_words(&main_content_html);
+
+        // 4-6. Remove clutter pipeline (hidden → exact selectors → partial → scoring)
+        let cleaned = removals::remove_clutter(&main_content_html);
+
+        // 7. Strip title h1 from content (title extracted as metadata)
+        let without_title = Self::strip_title_heading(&cleaned, &meta.title);
+
+        // 8. Standardize content
+        let standardized = standardize::standardize(&without_title);
+
+        // 9. Convert to markdown
+        let content_markdown = markdown::html_to_markdown(&standardized);
 
         Ok(DefuddleResult {
             title: meta.title,
@@ -97,7 +102,7 @@ impl Defuddle {
             description: meta.description,
             image: meta.image,
             language: meta.language,
-            content_html: cleaned_html,
+            content_html: standardized,
             content_markdown,
             word_count,
             schema_org,
@@ -108,34 +113,6 @@ impl Defuddle {
     pub async fn fetch_and_parse(url: &str) -> Result<DefuddleResult, DefuddleError> {
         let html = fetch::get(url).await?;
         Self::parse(&html, url)
-    }
-
-    /// Generic content extraction for pages without a site-specific extractor.
-    /// Returns (cleaned_html_without_title, word_count_including_title).
-    fn generic_extract(
-        html: &str,
-        _url: &Url,
-        title: &str,
-    ) -> Result<(String, usize), DefuddleError> {
-        let _document = Html::parse_document(html);
-
-        // Remove hidden elements, nav, ads, etc.
-        let cleaned = removals::remove_clutter(html);
-
-        // Score remaining elements and find the main content
-        let main_content = scoring::find_main_content(&cleaned);
-
-        // Count words from full content (including title heading)
-        let word_count = count_words(&main_content);
-
-        // Remove the first <h1> that matches the page title (defuddle behavior:
-        // title is extracted as metadata, not duplicated in content)
-        let without_title_h1 = Self::strip_title_heading(&main_content, title);
-
-        // Standardize elements (code blocks, etc.)
-        let standardized = standardize::standardize(&without_title_h1);
-
-        Ok((standardized, word_count))
     }
 
     /// Remove the first <h1> whose text matches the page title.
@@ -165,7 +142,6 @@ fn count_words(html: &str) -> usize {
     text.split_whitespace().count()
 }
 
-/// Errors that can occur during defuddling.
 #[derive(Debug, thiserror::Error)]
 pub enum DefuddleError {
     #[error("invalid URL: {0}")]
