@@ -1,0 +1,23 @@
+[package]
+name = "defuddle-rs"
+version = "0.1.0"
+edition = "2024"
+rust-version = "1.85.0"
+license = "MIT"
+repository = "https://github.com/npiesco/defuddle-rs"
+authors = ["Nicholas G. Piesco"]
+description = "Clean-room Rust port of defuddle — extract clean markdown from web pages"
+
+[dependencies]
+scraper = "0.22"
+regex = "1"
+url = "2"
+serde = { version = "1", features = ["derive"] }
+serde_json = "1"
+reqwest = { version = "0.12", features = ["json"] }
+tokio = { version = "1", features = ["rt", "macros"] }
+thiserror = "2"
+tracing = "0.1"
+
+[dev-dependencies]
+tokio = { version = "1", features = ["full"] }
