@@ -10,7 +10,17 @@ pub fn html_to_markdown(html: &str) -> String {
     let fragment = Html::parse_fragment(html);
     let mut output = String::new();
     convert_node(&fragment.root_element(), &mut output, 0);
-    collapse_whitespace(&output)
+    let collapsed = collapse_whitespace(&output);
+    escape_list_markers(&collapsed)
+}
+
+/// Escape numbered list markers (e.g. `1.` → `1\.`) that appear inside emphasis
+/// or at the start of lines where they weren't intended as lists.
+fn escape_list_markers(text: &str) -> String {
+    use regex::Regex;
+    // Match `**N. ` patterns — bold text starting with a number+dot
+    let re = Regex::new(r"\*\*(\d+)\. ").unwrap();
+    re.replace_all(text, r"**$1\. ").to_string()
 }
 
 fn convert_node(element: &ElementRef, output: &mut String, depth: usize) {

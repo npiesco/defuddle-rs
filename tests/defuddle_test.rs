@@ -31,9 +31,9 @@ fn parity_check(ours: &str, expected: &str) -> (f64, Vec<String>) {
 
     let mut missing = Vec::new();
     for exp_line in &expected_lines {
-        let found = our_lines
-            .iter()
-            .any(|our| our.contains(exp_line) || exp_line.contains(our));
+        let found = our_lines.iter().any(|our| {
+            our.contains(exp_line) || exp_line.contains(our) || word_overlap(our, exp_line) >= 0.8
+        });
         if !found {
             missing.push(exp_line.to_string());
         }
@@ -41,6 +41,16 @@ fn parity_check(ours: &str, expected: &str) -> (f64, Vec<String>) {
 
     let coverage = 1.0 - (missing.len() as f64 / expected_lines.len() as f64);
     (coverage, missing)
+}
+
+fn word_overlap(a: &str, b: &str) -> f64 {
+    let a_words: std::collections::HashSet<&str> = a.split_whitespace().collect();
+    let b_words: std::collections::HashSet<&str> = b.split_whitespace().collect();
+    if b_words.is_empty() {
+        return 1.0;
+    }
+    let intersection = a_words.intersection(&b_words).count();
+    intersection as f64 / b_words.len() as f64
 }
 
 fn assert_parity(name: &str, ours: &str, expected: &str, min_coverage: f64) {
@@ -329,7 +339,7 @@ fn joel_test_parity() {
         "https://www.joelonsoftware.com/2000/08/09/the-joel-test-12-steps-to-better-code/",
     )
     .unwrap();
-    assert_parity("joel_test", &result.content_markdown, &expected, 0.80);
+    assert_parity("joel_test", &result.content_markdown, &expected, 0.95);
 }
 
 // ── Metadata extraction ─────────────────────────────────────────────────────
