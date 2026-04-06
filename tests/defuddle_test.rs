@@ -14,12 +14,22 @@ fn fixture(name: &str) -> String {
 /// Compare our markdown output to defuddle CLI's expected output.
 /// Returns (coverage_pct, missing_lines).
 fn parity_check(ours: &str, expected: &str) -> (f64, Vec<String>) {
-    let our_lines: Vec<&str> = ours
+    // Normalize: shell piping can double backslashes or add escape chars in fixtures
+    let norm = |s: &str| {
+        s.replace("\\\\", "\\")
+            .replace("\\`", "`")
+            .replace("\\.", ".")
+            .replace("\r\n", "\n")
+    };
+    let ours_n = norm(ours);
+    let expected_n = norm(expected);
+
+    let our_lines: Vec<&str> = ours_n
         .lines()
         .map(|l| l.trim())
         .filter(|l| !l.is_empty())
         .collect();
-    let expected_lines: Vec<&str> = expected
+    let expected_lines: Vec<&str> = expected_n
         .lines()
         .map(|l| l.trim())
         .filter(|l| !l.is_empty())
@@ -182,7 +192,7 @@ fn rust_blog_markdown_parity_with_defuddle() {
     let expected = fixture("rust_blog.expected.md");
     let result =
         Defuddle::parse(&html, "https://blog.rust-lang.org/2024/02/08/Rust-1.76.0/").unwrap();
-    assert_parity("rust_blog", &result.content_markdown, &expected, 0.95);
+    assert_parity("rust_blog", &result.content_markdown, &expected, 0.98);
 }
 
 // ── MDN (tables, structured docs) ───────────────────────────────────────────
@@ -214,7 +224,7 @@ fn mdn_table_parity() {
         "https://developer.mozilla.org/en-US/docs/Web/HTML/Element/table",
     )
     .unwrap();
-    assert_parity("mdn_table", &result.content_markdown, &expected, 0.95);
+    assert_parity("mdn_table", &result.content_markdown, &expected, 0.98);
 }
 
 // ── HackerNews (thread, comments) ───────────────────────────────────────────
@@ -234,7 +244,7 @@ fn hackernews_parity() {
     let html = fixture("hackernews.html");
     let expected = fixture("hackernews.expected.md");
     let result = Defuddle::parse(&html, "https://news.ycombinator.com/item?id=39232976").unwrap();
-    assert_parity("hackernews", &result.content_markdown, &expected, 0.95);
+    assert_parity("hackernews", &result.content_markdown, &expected, 0.98);
 }
 
 // ── fasterthanlime (long article, code blocks, nested lists) ────────────────
@@ -263,7 +273,7 @@ fn fasterthanlime_parity() {
         "https://fasterthanli.me/articles/a-half-hour-to-learn-rust",
     )
     .unwrap();
-    assert_parity("fasterthanlime", &result.content_markdown, &expected, 0.95);
+    assert_parity("fasterthanlime", &result.content_markdown, &expected, 0.98);
 }
 
 // ── Wikipedia (heavy structure, footnotes, tables, images, infobox) ─────────
@@ -292,7 +302,7 @@ fn wikipedia_parity() {
         "https://en.wikipedia.org/wiki/Rust_(programming_language)",
     )
     .unwrap();
-    assert_parity("wikipedia", &result.content_markdown, &expected, 0.95);
+    assert_parity("wikipedia", &result.content_markdown, &expected, 0.98);
 }
 
 // ── GitHub (README, repo page) ──────────────────────────────────────────────
@@ -309,7 +319,7 @@ fn github_tokio_parity() {
     let html = fixture("github_tokio.html");
     let expected = fixture("github_tokio.expected.md");
     let result = Defuddle::parse(&html, "https://github.com/tokio-rs/tokio").unwrap();
-    assert_parity("github_tokio", &result.content_markdown, &expected, 0.95);
+    assert_parity("github_tokio", &result.content_markdown, &expected, 0.98);
 }
 
 // ── Joel on Software (classic blog, ads, sidebar) ───────────────────────────
@@ -339,7 +349,7 @@ fn joel_test_parity() {
         "https://www.joelonsoftware.com/2000/08/09/the-joel-test-12-steps-to-better-code/",
     )
     .unwrap();
-    assert_parity("joel_test", &result.content_markdown, &expected, 0.95);
+    assert_parity("joel_test", &result.content_markdown, &expected, 0.98);
 }
 
 // ── Metadata extraction ─────────────────────────────────────────────────────
