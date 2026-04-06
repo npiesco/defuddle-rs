@@ -119,7 +119,15 @@ fn convert_node(element: &ElementRef, output: &mut String, depth: usize) {
                                 if trimmed.is_empty() {
                                     // Empty link text — skip
                                 } else {
-                                    output.push_str(&format!("[{}]({})", trimmed, href));
+                                    let title = el.attr("title").unwrap_or("");
+                                    if title.is_empty() {
+                                        output.push_str(&format!("[{}]({})", trimmed, href));
+                                    } else {
+                                        output.push_str(&format!(
+                                            "[{}]({} \"{}\")",
+                                            trimmed, href, title
+                                        ));
+                                    }
                                 }
                             }
                         }
@@ -158,7 +166,9 @@ fn convert_node(element: &ElementRef, output: &mut String, depth: usize) {
                             output.push('\n');
                         }
                         "div" | "section" | "article" | "main" | "span" | "figure"
-                        | "figcaption" => {
+                        | "figcaption" | "sup" | "sub" | "small" | "mark" | "del" | "ins"
+                        | "abbr" | "cite" | "time" | "details" | "summary" | "dl" | "dt" | "dd"
+                        | "address" => {
                             convert_node(&child_ref, output, depth);
                         }
                         "script" | "style" | "nav" | "footer" | "header" => {
@@ -215,8 +225,12 @@ fn convert_table(element: &ElementRef, output: &mut String) {
             .select(&th_sel)
             .chain(row.select(&td_sel))
             .map(|cell| {
-                let text: String = cell.text().collect();
-                text.trim().replace('|', "\\|").to_string()
+                // Convert cell contents to markdown (preserving links, code, etc.)
+                let mut cell_md = String::new();
+                convert_node(&cell, &mut cell_md, 0);
+                let cleaned = cell_md.trim().replace('\n', " ").replace('|', "\\|");
+                // Collapse multiple spaces
+                cleaned.split_whitespace().collect::<Vec<_>>().join(" ")
             })
             .collect();
 

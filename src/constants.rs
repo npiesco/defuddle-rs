@@ -323,6 +323,10 @@ pub const CONTENT_INDICATORS: &[&str] = &[
     "post",
     "story",
     "table",
+    "markup",
+    "summary",
+    "body-text",
+    "page-content",
 ];
 
 /// Navigation indicator text patterns.
