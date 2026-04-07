@@ -12,7 +12,7 @@
 
 Drop in a URL or raw HTML. Get back the article content as clean markdown — no ads, no navigation, no sidebars, no clutter. Metadata extracted. Links preserved. Code blocks intact.
 
-Built as a native Rust library for [basalt-mind](https://github.com/npiesco/basalt-mind). No Node.js. No headless browser. No external dependencies at runtime.
+Built as a native Rust library. No Node.js. No headless browser. No external dependencies at runtime.
 
 ```rust
 use defuddle_rs::Defuddle;
@@ -107,7 +107,8 @@ Fetch a URL with reqwest and parse the response.
 | `dom_query` | Mutable DOM — parse, select, mutate, serialize |
 | `regex` | Partial selector matching, markdown post-processing |
 | `url` | URL parsing for metadata extraction |
-| `reqwest` | HTTP fetch |
+| `reqwest` | HTTP fetch (native only) |
+| `wasm-bindgen` | WASM exports (wasm32 only) |
 | `serde` / `serde_json` | Result serialization, schema.org parsing |
 | `thiserror` | Error types |
 
@@ -120,6 +121,27 @@ No `scraper`. No `html5ever` directly. `dom_query` handles the DOM with full mut
 ```bash
 cargo build --release
 cargo test
+```
+
+## WebAssembly
+
+The crate compiles to WASM for browser usage via `wasm-pack`. The `fetch` module (reqwest/tokio) is excluded on `wasm32` — only `Defuddle::parse` is available.
+
+```bash
+npm run build:wasm        # wasm-pack build → packages/defuddle-wasm/pkg/
+npm run test:wasm-browser  # Playwright smoke test in headless Chromium
+```
+
+### JavaScript usage
+
+```js
+import { initDefuddleWasm, parse } from "@defuddle/wasm";
+
+await initDefuddleWasm();
+
+const result = parse(htmlString, "https://example.com/article");
+console.log(result.title);
+console.log(result.content_markdown);
 ```
 
 ---
