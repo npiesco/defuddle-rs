@@ -110,23 +110,33 @@ fn convert_node(element: &ElementRef, output: &mut String, depth: usize) {
                             if href.is_empty() || href.starts_with("javascript:") || aria_hidden {
                                 convert_node(&child_ref, output, depth);
                             } else {
-                                let link_text = {
-                                    let mut s = String::new();
-                                    convert_node(&child_ref, &mut s, depth);
-                                    s
-                                };
-                                let trimmed = link_text.trim();
-                                if trimmed.is_empty() {
-                                    // Empty link text — skip
+                                // Check if this link wraps block-level content
+                                let has_blocks = Selector::parse("p, div, ul, ol, h1, h2, h3, h4, h5, h6, blockquote, pre, table")
+                                    .ok()
+                                    .map(|s| child_ref.select(&s).next().is_some())
+                                    .unwrap_or(false);
+                                if has_blocks {
+                                    // Block-level link — treat as transparent wrapper
+                                    convert_node(&child_ref, output, depth);
                                 } else {
-                                    let title = el.attr("title").unwrap_or("");
-                                    if title.is_empty() {
-                                        output.push_str(&format!("[{}]({})", trimmed, href));
+                                    let link_text = {
+                                        let mut s = String::new();
+                                        convert_node(&child_ref, &mut s, depth);
+                                        s
+                                    };
+                                    let trimmed = link_text.trim();
+                                    if trimmed.is_empty() {
+                                        // Empty link text — skip
                                     } else {
-                                        output.push_str(&format!(
-                                            "[{}]({} \"{}\")",
-                                            trimmed, href, title
-                                        ));
+                                        let title = el.attr("title").unwrap_or("");
+                                        if title.is_empty() {
+                                            output.push_str(&format!("[{}]({})", trimmed, href));
+                                        } else {
+                                            output.push_str(&format!(
+                                                "[{}]({} \"{}\")",
+                                                trimmed, href, title
+                                            ));
+                                        }
                                     }
                                 }
                             }
