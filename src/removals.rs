@@ -77,11 +77,16 @@ fn remove_by_exact_selector(html: &str) -> String {
     let doc = Html::parse_fragment(html);
     let mut output = html.to_string();
 
+    let footnote_sel = Selector::parse(FOOTNOTE_LIST_SELECTORS).ok();
+
     for sel_str in EXACT_SELECTORS {
         if let Ok(sel) = Selector::parse(sel_str) {
             for el in doc.select(&sel) {
-                // Skip elements inside code blocks
                 if is_inside_code(&el) {
+                    continue;
+                }
+                // Protect footnote list elements and their ancestors
+                if is_footnote_related(&el, &footnote_sel) {
                     continue;
                 }
                 let el_html = el.html();
@@ -154,12 +159,17 @@ fn score_and_remove(html: &str) -> String {
     let doc = Html::parse_fragment(html);
     let mut output = html.to_string();
 
+    let footnote_sel = Selector::parse(FOOTNOTE_LIST_SELECTORS).ok();
     let block_sel_str = BLOCK_ELEMENTS.join(", ");
     if let Ok(sel) = Selector::parse(&block_sel_str) {
         let mut removals: Vec<String> = Vec::new();
 
         for el in doc.root_element().select(&sel) {
             if is_inside_code(&el) {
+                continue;
+            }
+
+            if is_footnote_related(&el, &footnote_sel) {
                 continue;
             }
 
@@ -344,6 +354,45 @@ fn is_inside_code(el: &scraper::ElementRef) -> bool {
             }
         }
         node = parent.parent();
+    }
+    false
+}
+
+/// Check if an element is footnote-related (by class/id).
+fn is_footnote_related(el: &scraper::ElementRef, _footnote_sel: &Option<Selector>) -> bool {
+    // Check element's own class/id
+    let class = el.value().attr("class").unwrap_or("").to_lowercase();
+    let id = el.value().attr("id").unwrap_or("").to_lowercase();
+    if class.contains("footnote")
+        || class.contains("reference")
+        || class.contains("reflist")
+        || id.contains("footnote")
+        || id.contains("reference")
+        || id.contains("reflist")
+    {
+        return true;
+    }
+    // Check parent chain (shallow — just 3 levels up)
+    let mut node = el.parent();
+    for _ in 0..3 {
+        if let Some(parent) = node {
+            if let Some(elem) = parent.value().as_element() {
+                let pc = elem.attr("class").unwrap_or("").to_lowercase();
+                let pi = elem.attr("id").unwrap_or("").to_lowercase();
+                if pc.contains("footnote")
+                    || pc.contains("reference")
+                    || pc.contains("reflist")
+                    || pi.contains("footnote")
+                    || pi.contains("reference")
+                    || pi.contains("reflist")
+                {
+                    return true;
+                }
+            }
+            node = parent.parent();
+        } else {
+            break;
+        }
     }
     false
 }
