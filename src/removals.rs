@@ -1,151 +1,144 @@
-//! Clutter removal pipeline — ported from defuddle's removals/.
-//!
-//! Steps (applied in order to the main content element):
-//! 1. remove_hidden — display:none, visibility:hidden, opacity:0, CSS framework classes
-//! 2. remove_by_selector — exact + partial class/id matching
-//! 3. remove_by_content_pattern — text-based navigation/boilerplate detection
-//! 4. score_and_remove — heuristic scoring of remaining blocks
-
-use regex::Regex;
-use scraper::{Html, Selector};
-
 use crate::constants::*;
+use dom_query::{Document, NodeRef, Selection};
+use regex::Regex;
 
-/// Run the full clutter removal pipeline on HTML.
-pub fn remove_clutter(html: &str) -> String {
-    let mut output = html.to_string();
-    output = remove_hidden(&output);
-    output = remove_by_exact_selector(&output);
-    output = remove_by_partial_selector(&output);
-    output = score_and_remove(&output);
-    output
+/// Run the full clutter removal pipeline.
+/// `main_content_id` is the NodeId of the main content element — ancestors are protected.
+pub fn remove_clutter(doc: &Document, main_content: &Selection) {
+    let main_id = main_content.nodes().first().map(|n| n.id);
+    remove_hidden(doc, main_id);
+    remove_by_exact_selector(doc, main_id);
+    remove_by_partial_selector(doc, main_id);
+    score_and_remove(doc, main_id);
 }
 
-// ── Step 1: Remove hidden elements ──────────────────────────────────────────
+/// Check if `node` is an ancestor of (contains) the main content element.
+fn contains_main(node: &NodeRef, main_id: Option<dom_query::NodeId>) -> bool {
+    let Some(mid) = main_id else {
+        return false;
+    };
+    // Check if main_id is a descendant of this node
+    for desc in node.descendants().iter() {
+        if desc.id == mid {
+            return true;
+        }
+    }
+    false
+}
 
-fn remove_hidden(html: &str) -> String {
-    let doc = Html::parse_fragment(html);
-    let mut output = html.to_string();
-
-    // Inline style patterns
-    let hidden_re = Regex::new(
-        r"(?:^|;\s*)(?:display\s*:\s*none|visibility\s*:\s*hidden|opacity\s*:\s*0)(?:\s*;|\s*$)",
-    )
-    .unwrap();
-
-    if let Ok(sel) = Selector::parse("*") {
-        for el in doc.root_element().select(&sel) {
-            // Skip math elements
-            if el.value().name() == "math" {
-                continue;
-            }
-            if Selector::parse("math, [data-mathml], .katex-mathml")
-                .ok()
-                .map(|s| el.select(&s).next().is_some())
-                .unwrap_or(false)
+fn remove_hidden(doc: &Document, main_id: Option<dom_query::NodeId>) {
+    for node in doc.select("[style]").nodes().iter() {
+        if contains_main(node, main_id) {
+            continue;
+        }
+        let style = node
+            .attr("style")
+            .unwrap_or_default()
+            .to_string()
+            .to_lowercase();
+        if style.contains("display:none")
+            || style.contains("display: none")
+            || style.contains("visibility:hidden")
+            || style.contains("visibility: hidden")
+            || style.contains("opacity:0")
+            || style.contains("opacity: 0")
+        {
+            if !Selection::from(node.clone())
+                .select("math, [data-mathml], .katex-mathml")
+                .exists()
             {
-                continue;
-            }
-
-            let style = el.value().attr("style").unwrap_or("");
-            if hidden_re.is_match(style) {
-                output = output.replacen(&el.html(), "", 1);
-                continue;
-            }
-
-            // CSS framework hidden utilities
-            let class = el.value().attr("class").unwrap_or("");
-            let tokens: Vec<&str> = class.split_whitespace().collect();
-            let is_hidden = tokens.iter().any(|t| {
-                *t == "hidden"
-                    || t.ends_with(":hidden")
-                    || *t == "invisible"
-                    || t.ends_with(":invisible")
-            });
-            if is_hidden {
-                output = output.replacen(&el.html(), "", 1);
+                node.remove_from_parent();
             }
         }
     }
-
-    output
+    for node in doc.select(".hidden, .invisible").nodes().iter() {
+        if contains_main(node, main_id) {
+            continue;
+        }
+        // Don't remove hidden math elements
+        let class = node.attr("class").unwrap_or_default().to_string();
+        if class.contains("math") {
+            continue;
+        }
+        node.remove_from_parent();
+    }
 }
 
-// ── Step 2: Remove by exact selector ────────────────────────────────────────
-
-fn remove_by_exact_selector(html: &str) -> String {
-    let doc = Html::parse_fragment(html);
-    let mut output = html.to_string();
-
-    let footnote_sel = Selector::parse(FOOTNOTE_LIST_SELECTORS).ok();
-
+fn remove_by_exact_selector(doc: &Document, main_id: Option<dom_query::NodeId>) {
     for sel_str in EXACT_SELECTORS {
-        if let Ok(sel) = Selector::parse(sel_str) {
-            for el in doc.select(&sel) {
-                if is_inside_code(&el) {
+        if let Some(sel) = doc.try_select(sel_str) {
+            for node in sel.nodes().iter() {
+                if contains_main(node, main_id) {
                     continue;
                 }
-                // Protect footnote list elements and their ancestors
-                if is_footnote_related(&el, &footnote_sel) {
+                if is_inside_pre(node) {
                     continue;
                 }
-                let el_html = el.html();
-                if !el_html.is_empty() {
-                    output = output.replacen(&el_html, "", 1);
+                if is_footnote_related(node) {
+                    continue;
                 }
+                node.remove_from_parent();
             }
         }
     }
-
-    output
 }
 
-// ── Step 3: Remove by partial selector (class/id matching) ──────────────────
-
-fn remove_by_partial_selector(html: &str) -> String {
-    let doc = Html::parse_fragment(html);
-    let mut output = html.to_string();
-
+fn remove_by_partial_selector(doc: &Document, main_id: Option<dom_query::NodeId>) {
     let partial_re = build_partial_regex();
+    for node in doc
+        .select("[class], [id], [data-component], [data-testid]")
+        .nodes()
+        .iter()
+    {
+        if contains_main(node, main_id) {
+            continue;
+        }
+        if is_inside_pre(node) {
+            continue;
+        }
 
-    if let Ok(sel) = Selector::parse("[class], [id], [data-component], [data-testid]") {
-        for el in doc.root_element().select(&sel) {
-            // Skip code elements
-            if is_inside_code(&el) {
+        let name = node
+            .node_name()
+            .unwrap_or_default()
+            .to_string()
+            .to_lowercase();
+        let is_heading = matches!(name.as_str(), "h1" | "h2" | "h3" | "h4" | "h5" | "h6");
+
+        let class = node
+            .attr("class")
+            .unwrap_or_default()
+            .to_string()
+            .to_lowercase();
+        let id = if is_heading {
+            String::new()
+        } else {
+            node.attr("id")
+                .unwrap_or_default()
+                .to_string()
+                .to_lowercase()
+        };
+        let dc = node
+            .attr("data-component")
+            .unwrap_or_default()
+            .to_string()
+            .to_lowercase();
+        let dt = node
+            .attr("data-testid")
+            .unwrap_or_default()
+            .to_string()
+            .to_lowercase();
+        let attrs = format!("{} {} {} {}", class, id, dc, dt);
+        if attrs.trim().is_empty() {
+            continue;
+        }
+
+        if partial_re.is_match(&attrs) {
+            if is_footnote_related(node) {
                 continue;
             }
-
-            let tag = el.value().name();
-            let is_heading = matches!(tag, "h1" | "h2" | "h3" | "h4" | "h5" | "h6");
-
-            let class = el.value().attr("class").unwrap_or("").to_lowercase();
-            let id = if is_heading {
-                String::new()
-            } else {
-                el.value().attr("id").unwrap_or("").to_lowercase()
-            };
-            let data_component = el
-                .value()
-                .attr("data-component")
-                .unwrap_or("")
-                .to_lowercase();
-            let data_testid = el.value().attr("data-testid").unwrap_or("").to_lowercase();
-
-            let attrs = format!("{} {} {} {}", class, id, data_component, data_testid);
-            if attrs.trim().is_empty() {
-                continue;
-            }
-
-            if partial_re.is_match(&attrs) {
-                let el_html = el.html();
-                if !el_html.is_empty() {
-                    output = output.replacen(&el_html, "", 1);
-                }
-            }
+            node.remove_from_parent();
         }
     }
-
-    output
 }
 
 fn build_partial_regex() -> Regex {
@@ -153,103 +146,60 @@ fn build_partial_regex() -> Regex {
     Regex::new(&format!("(?i){}", escaped.join("|"))).unwrap()
 }
 
-// ── Step 4: Score and remove non-content blocks ─────────────────────────────
-
-fn score_and_remove(html: &str) -> String {
-    let doc = Html::parse_fragment(html);
-    let mut output = html.to_string();
-
-    let footnote_sel = Selector::parse(FOOTNOTE_LIST_SELECTORS).ok();
-    let block_sel_str = BLOCK_ELEMENTS.join(", ");
-    if let Ok(sel) = Selector::parse(&block_sel_str) {
-        let mut removals: Vec<String> = Vec::new();
-
-        for el in doc.root_element().select(&sel) {
-            if is_inside_code(&el) {
-                continue;
-            }
-
-            if is_footnote_related(&el, &footnote_sel) {
-                continue;
-            }
-
-            if is_likely_content(&el) {
-                continue;
-            }
-
-            let score = score_non_content_block(&el);
-            if score < 0.0 {
-                removals.push(el.html());
-            }
+fn score_and_remove(doc: &Document, main_id: Option<dom_query::NodeId>) {
+    let block_sel = BLOCK_ELEMENTS.join(", ");
+    for node in doc.select(&block_sel).nodes().iter() {
+        if contains_main(node, main_id) {
+            continue;
+        }
+        if is_inside_pre(node) {
+            continue;
+        }
+        if is_likely_content(node) {
+            continue;
+        }
+        if is_footnote_related(node) {
+            continue;
         }
 
-        // Remove longest first to avoid substring overlap
-        removals.sort_by(|a, b| b.len().cmp(&a.len()));
-        for removal in &removals {
-            output = output.replacen(removal.as_str(), "", 1);
+        let score = score_non_content(node);
+        if score < 0.0 {
+            node.remove_from_parent();
         }
     }
-
-    output
 }
 
-/// Score a block — negative = non-content.
-fn score_non_content_block(el: &scraper::ElementRef) -> f64 {
-    let mut score = 0.0f64;
-
-    let text: String = el.text().collect();
+fn score_non_content(node: &NodeRef) -> f64 {
+    let text = node.text().to_string();
     let words = text.split_whitespace().count();
-
     if words < 3 {
         return 0.0;
     }
+    let mut score = text.matches(',').count() as f64;
 
-    // Commas = prose signal
-    let commas = text.matches(',').count() as f64;
-    score += commas;
-
-    // Navigation indicator text matches
     let text_lower = text.to_lowercase();
-    for indicator in NAVIGATION_INDICATORS {
-        if text_lower.contains(indicator) {
+    for ind in NAVIGATION_INDICATORS {
+        if text_lower.contains(ind) {
             score -= 10.0;
         }
     }
 
-    // Link density
-    if let Ok(sel) = Selector::parse("a") {
-        let links = el.select(&sel).count();
-        let link_density = links as f64 / words.max(1) as f64;
-        if link_density > 0.5 {
-            score -= 15.0;
-        }
-
-        // High link text ratio for small blocks
-        if links > 1 && words < 80 {
-            let link_text_len: usize = el
-                .select(&sel)
-                .map(|a| a.text().collect::<String>().len())
-                .sum();
-            let text_len = text.len().max(1);
-            if link_text_len as f64 / text_len as f64 > 0.8 {
-                score -= 15.0;
-            }
-        }
+    let link_count = Selection::from(node.clone()).select("a").length();
+    if link_count as f64 / words.max(1) as f64 > 0.5 {
+        score -= 15.0;
     }
 
-    // List + link combo (navigation)
-    if let (Ok(ul_sel), Ok(a_sel)) = (Selector::parse("ul, ol"), Selector::parse("a")) {
-        let lists = el.select(&ul_sel).count();
-        let links = el.select(&a_sel).count();
-        if lists > 0 && links > lists * 3 {
-            score -= 10.0;
-        }
-    }
-
-    // Non-content class patterns
-    let class = el.value().attr("class").unwrap_or("").to_lowercase();
-    let id = el.value().attr("id").unwrap_or("").to_lowercase();
-    let non_content = [
+    let class = node
+        .attr("class")
+        .unwrap_or_default()
+        .to_string()
+        .to_lowercase();
+    let id = node
+        .attr("id")
+        .unwrap_or_default()
+        .to_string()
+        .to_lowercase();
+    for p in &[
         "advert",
         "ad-",
         "ads",
@@ -273,96 +223,93 @@ fn score_non_content_block(el: &scraper::ElementRef) -> f64 {
         "terms",
         "trending",
         "widget",
-    ];
-    for pattern in non_content {
-        if class.contains(pattern) || id.contains(pattern) {
+    ] {
+        if class.contains(p) || id.contains(p) {
             score -= 8.0;
         }
     }
 
+    let tag = node
+        .node_name()
+        .unwrap_or_default()
+        .to_string()
+        .to_lowercase();
+    match tag.as_str() {
+        "nav" | "footer" | "header" | "aside" => score -= 30.0,
+        "form" => score -= 15.0,
+        _ => {}
+    }
     score
 }
 
-/// Check if an element is likely content (should NOT be removed).
-fn is_likely_content(el: &scraper::ElementRef) -> bool {
-    let role = el.value().attr("role").unwrap_or("");
-    if matches!(role, "article" | "main" | "contentinfo") {
+fn is_likely_content(node: &NodeRef) -> bool {
+    let class = node
+        .attr("class")
+        .unwrap_or_default()
+        .to_string()
+        .to_lowercase();
+    let id = node
+        .attr("id")
+        .unwrap_or_default()
+        .to_string()
+        .to_lowercase();
+    let role = node
+        .attr("role")
+        .unwrap_or_default()
+        .to_string()
+        .to_lowercase();
+
+    if matches!(role.as_str(), "article" | "main" | "contentinfo") {
+        return true;
+    }
+    for ind in CONTENT_INDICATORS {
+        if class.contains(ind) || id.contains(ind) {
+            return true;
+        }
+    }
+    if Selection::from(node.clone())
+        .select(CONTENT_ELEMENT_SELECTOR)
+        .exists()
+    {
         return true;
     }
 
-    let class = el.value().attr("class").unwrap_or("").to_lowercase();
-    let id = el.value().attr("id").unwrap_or("").to_lowercase();
-
-    for indicator in CONTENT_INDICATORS {
-        if class.contains(indicator) || id.contains(indicator) {
-            return true;
-        }
-    }
-
-    // Elements containing code, tables, figures, images = content
-    if let Ok(sel) = Selector::parse(CONTENT_ELEMENT_SELECTOR) {
-        if el.select(&sel).next().is_some() {
-            return true;
-        }
-    }
-
-    let text: String = el.text().collect();
-    let words = text.split_whitespace().count();
-
-    // Paragraphs + list items
-    let p_count = Selector::parse("p")
-        .ok()
-        .map(|s| el.select(&s).count())
-        .unwrap_or(0);
-    let li_count = Selector::parse("li")
-        .ok()
-        .map(|s| el.select(&s).count())
-        .unwrap_or(0);
-    let content_blocks = p_count + li_count;
-
-    if words > 50 && content_blocks > 1 {
+    let words = node.text().split_whitespace().count();
+    let p_count = Selection::from(node.clone()).select("p").length();
+    let li_count = Selection::from(node.clone()).select("li").length();
+    if words > 50 && (p_count + li_count) > 1 {
         return true;
     }
     if words > 100 {
         return true;
     }
-    if words > 30 && content_blocks > 0 {
+    if words > 30 && (p_count + li_count) > 0 {
         return true;
     }
+    false
+}
 
-    // Prose text with sentence-ending punctuation and low link density
-    if words >= 10 && text.contains('.') || text.contains('?') || text.contains('!') {
-        let link_count = Selector::parse("a")
-            .ok()
-            .map(|s| el.select(&s).count())
-            .unwrap_or(0);
-        let link_density = link_count as f64 / words.max(1) as f64;
-        if link_density < 0.1 {
+fn is_inside_pre(node: &NodeRef) -> bool {
+    for a in node.ancestors(Some(10)).iter() {
+        let name = a.node_name().unwrap_or_default().to_string().to_lowercase();
+        if name == "pre" || name == "code" {
             return true;
         }
     }
-
     false
 }
 
-fn is_inside_code(el: &scraper::ElementRef) -> bool {
-    let mut node = el.parent();
-    while let Some(parent) = node {
-        if let Some(elem) = parent.value().as_element() {
-            if matches!(elem.name(), "pre" | "code") {
-                return true;
-            }
-        }
-        node = parent.parent();
-    }
-    false
-}
-
-/// Check if an element is footnote-related (by class/id).
-fn is_footnote_related(el: &scraper::ElementRef, _footnote_sel: &Option<Selector>) -> bool {
-    // Check element's own class/id
-    let class = el.value().attr("class").unwrap_or("").to_lowercase();
-    let id = el.value().attr("id").unwrap_or("").to_lowercase();
+fn is_footnote_related(node: &NodeRef) -> bool {
+    let class = node
+        .attr("class")
+        .unwrap_or_default()
+        .to_string()
+        .to_lowercase();
+    let id = node
+        .attr("id")
+        .unwrap_or_default()
+        .to_string()
+        .to_lowercase();
     if class.contains("footnote")
         || class.contains("reference")
         || class.contains("reflist")
@@ -372,26 +319,21 @@ fn is_footnote_related(el: &scraper::ElementRef, _footnote_sel: &Option<Selector
     {
         return true;
     }
-    // Check parent chain (shallow — just 3 levels up)
-    let mut node = el.parent();
-    for _ in 0..3 {
-        if let Some(parent) = node {
-            if let Some(elem) = parent.value().as_element() {
-                let pc = elem.attr("class").unwrap_or("").to_lowercase();
-                let pi = elem.attr("id").unwrap_or("").to_lowercase();
-                if pc.contains("footnote")
-                    || pc.contains("reference")
-                    || pc.contains("reflist")
-                    || pi.contains("footnote")
-                    || pi.contains("reference")
-                    || pi.contains("reflist")
-                {
-                    return true;
-                }
-            }
-            node = parent.parent();
-        } else {
-            break;
+    for a in node.ancestors(Some(3)).iter() {
+        let c = a
+            .attr("class")
+            .unwrap_or_default()
+            .to_string()
+            .to_lowercase();
+        let i = a.attr("id").unwrap_or_default().to_string().to_lowercase();
+        if c.contains("footnote")
+            || c.contains("reference")
+            || c.contains("reflist")
+            || i.contains("footnote")
+            || i.contains("reference")
+            || i.contains("reflist")
+        {
+            return true;
         }
     }
     false

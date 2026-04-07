@@ -1,11 +1,7 @@
-//! Site-specific extractors — handle known sites with custom logic.
-
 pub mod github;
-
-use scraper::Html;
+use dom_query::Document;
 use url::Url;
 
-/// Result from a site-specific extractor.
 pub struct ExtractorResult {
     pub content_html: String,
     pub title: Option<String>,
@@ -14,16 +10,10 @@ pub struct ExtractorResult {
     pub site: Option<String>,
 }
 
-/// Try all registered extractors. Returns the first match.
-pub fn try_extract(document: &Html, url: &Url) -> Option<ExtractorResult> {
+pub fn try_extract(doc: &Document, url: &Url) -> Option<ExtractorResult> {
     let domain = url.host_str()?;
-
     if domain.contains("github.com") {
-        return github::extract(document, url);
+        return github::extract(doc, url);
     }
-
-    // More extractors will be added here as they're implemented:
-    // reddit, youtube, hackernews, twitter, chatgpt, claude, etc.
-
     None
 }

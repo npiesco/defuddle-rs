@@ -683,9 +683,7 @@ It was established on February 8, 2021, with five founding corporate members (Am
 
 ### Governance teams
 
-[^1]: Including build tools, host tools, and standard library support for,,,,,,,, and.[^9]
 
-[^2]: Including,,,,, and. Host build tools on,,,, and are not officially shipped; these operating systems are supported as targets.[^9]
 
 [^3]: Third-party dependencies, e.g., or, are subject to their own licenses.[^10]
 
