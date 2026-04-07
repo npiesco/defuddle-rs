@@ -57,18 +57,20 @@ Every removal step receives the `mainContent` reference and **skips any element 
 
 ## Parity
 
-Tested against `npx defuddle parse <file> --md` output using **exact line matching** (no fuzzy, no word overlap):
+100% line-for-line parity with [defuddle](https://github.com/kepano/defuddle) across 8 real-world fixtures — from simple pages to 1,134-line HackerNews threads.
 
-| Fixture | Type | Lines | Parity |
-|---------|------|-------|--------|
-| example.com | Simple page | 3 | 100% |
-| Rust Blog | Article + code blocks | 43 | 100% |
-| MDN Table Docs | Structured docs + tables | 559 | 100% |
-| HackerNews | Thread + comments | 1134 | 100% |
-| fasterthanlime | Long article + code | 357 | 100% |
-| Wikipedia (Rust) | Heavy structure + footnotes | 671 | 100% |
-| GitHub (tokio) | README extraction | 114 | 100% |
-| Joel on Software | Classic blog + sidebar | 89 | 100% |
+| Fixture | Lines | Parity |
+|---------|------:|--------|
+| example.com | 2 | 100% |
+| Rust Blog | 43 | 100% |
+| MDN Table Docs | 559 | 100% |
+| HackerNews | 1134 | 100% |
+| fasterthanlime | 357 | 100% |
+| Wikipedia (Rust) | 671 | 100% |
+| GitHub (tokio) | 114 | 100% |
+| Joel on Software | 89 | 100% |
+
+Full methodology, fixture details, and side-by-side samples in **[PARITY.md](PARITY.md)**.
 
 ---
 

@@ -3,5 +3,6 @@
 node_modules/
 packages/defuddle-wasm/pkg/
 *.db
+*.db.*
 data/
 auto/
