@@ -11,16 +11,45 @@ pub fn html_to_markdown(html: &str) -> String {
     let mut output = String::new();
     convert_node(&fragment.root_element(), &mut output, 0);
     let collapsed = collapse_whitespace(&output);
-    escape_list_markers(&collapsed)
+    let escaped = escape_list_markers(&collapsed);
+    fix_inline_code_spacing(&escaped)
 }
 
 /// Escape numbered list markers (e.g. `1.` → `1\.`) that appear inside emphasis
 /// or at the start of lines where they weren't intended as lists.
 fn escape_list_markers(text: &str) -> String {
     use regex::Regex;
-    // Match `**N. ` patterns — bold text starting with a number+dot
     let re = Regex::new(r"\*\*(\d+)\. ").unwrap();
     re.replace_all(text, r"**$1\. ").to_string()
+}
+
+/// Add space between closing inline code backtick and immediately following
+/// grammatical suffix (s, es, ed, ing, 's). Matches Turndown/defuddle behavior.
+/// Skips lines inside fenced code blocks.
+fn fix_inline_code_spacing(text: &str) -> String {
+    use regex::Regex;
+    // Only match: code backtick followed by s/es/ed/ing/'s (grammatical suffixes)
+    let re = Regex::new(r"([^`])`(s\b|es\b|ed\b|ing\b|'s\b)").unwrap();
+    let mut in_fence = false;
+    let mut result = String::with_capacity(text.len());
+
+    for line in text.lines() {
+        if line.trim_start().starts_with("```") {
+            in_fence = !in_fence;
+            result.push_str(line);
+        } else if in_fence {
+            result.push_str(line);
+        } else {
+            let fixed = re.replace_all(line, "$1` $2");
+            result.push_str(&fixed);
+        }
+        result.push('\n');
+    }
+
+    if result.ends_with('\n') && !text.ends_with('\n') {
+        result.pop();
+    }
+    result
 }
 
 fn convert_node(element: &ElementRef, output: &mut String, depth: usize) {
@@ -175,11 +204,17 @@ fn convert_node(element: &ElementRef, output: &mut String, depth: usize) {
                             convert_table(&child_ref, output);
                             output.push('\n');
                         }
-                        "div" | "section" | "article" | "main" | "span" | "figure"
-                        | "figcaption" | "sup" | "sub" | "small" | "mark" | "del" | "ins"
-                        | "abbr" | "cite" | "time" | "details" | "summary" | "dl" | "dt" | "dd"
-                        | "address" => {
+                        "div" | "section" | "article" | "main" | "span" | "figure" | "sup"
+                        | "sub" | "small" | "mark" | "del" | "ins" | "abbr" | "cite" | "time"
+                        | "details" | "summary" | "dl" | "dt" | "dd" | "address" => {
                             convert_node(&child_ref, output, depth);
+                        }
+                        "figcaption" => {
+                            let text: String = child_ref.text().collect();
+                            let clean = text.split_whitespace().collect::<Vec<_>>().join(" ");
+                            if !clean.is_empty() {
+                                output.push_str(&clean);
+                            }
                         }
                         "script" | "style" | "nav" | "footer" | "header" => {
                             // Skip

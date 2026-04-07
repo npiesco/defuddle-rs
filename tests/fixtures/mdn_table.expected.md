@@ -723,5 +723,4 @@ tr:last-child td {
 
 ## Specifications
 
-Specification[HTML  
-\# the-table-element](https://html.spec.whatwg.org/multipage/tables.html#the-table-element)
+Specification[HTML # the-table-element](https://html.spec.whatwg.org/multipage/tables.html#the-table-element)

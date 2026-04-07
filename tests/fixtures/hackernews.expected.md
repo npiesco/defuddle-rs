@@ -1,7 +1,6 @@
 |  | **[Hacker News](news)** [new](newest) \| [past](front) \| [comments](newcomments) \| [ask](ask) \| [show](show) \| [jobs](jobs) \| [submit](submit) | [login](login?goto=item%3Fid%3D39232976) |
 | --- | --- | --- | --- | --- | --- | --- | --- | --- |
 
-<table><tbody><tr><td align="right"></td><td></td><td><a href="https://pkl-lang.org/blog/introducing-pkl.html">Pkl, a Programming Language for Configuration</a> (<a href="from?site=pkl-lang.org">pkl-lang.org</a>)</td></tr><tr><td colspan="2"></td><td>930 points by <a href="user?id=bioballer">bioballer</a> <span><a href="item?id=39232976">on Feb 3, 2024</a></span> | <a href="hide?id=39232976&goto=item%3Fid%3D39232976">hide</a> | <a href="https://hn.algolia.com/?query=Pkl%2C%20a%20Programming%20Language%20for%20Configuration&type=story&dateRange=all&sort=byDate&storyText=false&prefix&page=0">past</a> | <a href="fave?id=39232976&auth=620603c7fdc9d257e55c2098ffc0c1396cd38064">favorite</a> | <a href="item?id=39232976">564 comments</a></td></tr><tr><td colspan="2"></td><td></td></tr></tbody></table>
 
   
 

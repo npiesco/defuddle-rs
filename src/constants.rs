@@ -17,6 +17,8 @@ pub const ENTRY_POINT_SELECTORS: &[&str] = &[
     ".instapaper_body",
     ".post",
     ".markdown-body",
+    ".markup-container",
+    ".post-blocks",
     "article",
     "[role=\"article\"]",
     "main",
