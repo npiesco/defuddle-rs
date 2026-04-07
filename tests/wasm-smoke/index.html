@@ -1,0 +1,57 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1" />
+    <title>defuddle wasm smoke</title>
+  </head>
+  <body>
+    <div id="status">booting</div>
+    <script type="module">
+      const status = document.getElementById("status");
+
+      async function main() {
+        try {
+          const { initDefuddleWasm, parse } = await import(
+            "/packages/defuddle-wasm/index.js"
+          );
+
+          await initDefuddleWasm();
+
+          const html = `<!DOCTYPE html>
+<html>
+  <head>
+    <title>Test Article</title>
+    <meta name="author" content="Jane Doe" />
+    <meta name="description" content="A test article for smoke testing" />
+  </head>
+  <body>
+    <nav><a href="/">Home</a> <a href="/about">About</a></nav>
+    <article>
+      <h1>Test Article</h1>
+      <p>This is the main content of the article. It contains enough text to be
+      identified as the primary content block by the scoring algorithm.</p>
+      <p>Here is another paragraph with more meaningful content about the topic
+      at hand. The defuddle parser should extract this cleanly without any of
+      the surrounding navigation or sidebar clutter.</p>
+    </article>
+    <aside>Sidebar content</aside>
+    <footer>Footer content</footer>
+  </body>
+</html>`;
+
+          const result = parse(html, "https://example.com/test-article");
+
+          window.__DEFUDDLE_WASM_RESULT__ = result;
+          status.textContent = JSON.stringify(result);
+        } catch (error) {
+          const message = error instanceof Error ? error.message : String(error);
+          window.__DEFUDDLE_WASM_ERROR__ = message;
+          status.textContent = message;
+        }
+      }
+
+      main();
+    </script>
+  </body>
+</html>

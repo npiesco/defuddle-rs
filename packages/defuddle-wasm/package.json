@@ -1,0 +1,32 @@
+{
+  "name": "@defuddle/wasm",
+  "version": "0.1.0",
+  "private": true,
+  "description": "Browser-ready WebAssembly package for the defuddle-rs HTML-to-markdown engine",
+  "license": "MIT",
+  "type": "module",
+  "sideEffects": false,
+  "files": [
+    "index.js",
+    "index.d.ts",
+    "README.md",
+    "pkg"
+  ],
+  "exports": {
+    ".": {
+      "types": "./index.d.ts",
+      "import": "./index.js"
+    },
+    "./pkg/*": "./pkg/*"
+  },
+  "scripts": {
+    "build": "wasm-pack build ../.. --target web --release --out-dir packages/defuddle-wasm/pkg --out-name defuddle_rs"
+  },
+  "keywords": [
+    "html",
+    "markdown",
+    "wasm",
+    "rust",
+    "defuddle"
+  ]
+}

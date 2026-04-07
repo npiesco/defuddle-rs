@@ -1,0 +1,10 @@
+{
+  "name": "defuddle-rs-workspace",
+  "private": true,
+  "version": "0.1.0",
+  "description": "Workspace helper scripts for defuddle-rs",
+  "scripts": {
+    "build:wasm": "npm --prefix packages/defuddle-wasm run build",
+    "test:wasm-browser": "npm --prefix tests/wasm-smoke run test"
+  }
+}

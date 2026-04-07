@@ -1,6 +1,7 @@
 pub mod constants;
 pub mod elements;
 pub mod extractors;
+#[cfg(not(target_arch = "wasm32"))]
 pub mod fetch;
 pub mod markdown;
 pub mod metadata;
@@ -11,6 +12,9 @@ pub mod standardize;
 use dom_query::Document;
 use serde::{Deserialize, Serialize};
 use url::Url;
+
+#[cfg(target_arch = "wasm32")]
+use wasm_bindgen::prelude::*;
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct DefuddleResult {
@@ -102,6 +106,7 @@ impl Defuddle {
         })
     }
 
+    #[cfg(not(target_arch = "wasm32"))]
     pub async fn fetch_and_parse(url: &str) -> Result<DefuddleResult, DefuddleError> {
         let html = fetch::get(url).await?;
         Self::parse(&html, url)
@@ -116,4 +121,24 @@ pub enum DefuddleError {
     Fetch(String),
     #[error("parse error: {0}")]
     Parse(String),
+}
+
+#[cfg(target_arch = "wasm32")]
+#[derive(Serialize)]
+struct WasmErrorResponse<'a> {
+    error: &'a str,
+}
+
+#[cfg(target_arch = "wasm32")]
+#[wasm_bindgen(js_name = parseJson)]
+pub fn wasm_parse_json(html: &str, url: &str) -> String {
+    match Defuddle::parse(html, url) {
+        Ok(result) => serde_json::to_string(&result)
+            .unwrap_or_else(|e| format!("{{\"error\":\"{}\"}}", e)),
+        Err(error) => {
+            let msg = error.to_string();
+            serde_json::to_string(&WasmErrorResponse { error: &msg })
+                .unwrap_or_else(|_| "{\"error\":\"parse failed\"}".to_owned())
+        }
+    }
 }

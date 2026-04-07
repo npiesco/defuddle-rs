@@ -1,2 +1,7 @@
 /target
 .env
+node_modules/
+packages/defuddle-wasm/pkg/
+*.db
+data/
+auto/
