@@ -152,9 +152,10 @@ console.log(result.content_markdown);
 
 This repo includes an extension-first workflow under `extension/`.
 
-- Click the extension on any page to capture that tab's HTML directly.
-- The extension opens `panel.html`, which runs the same WASM parser locally.
-- Captured pages are stored in extension session storage and parsed automatically by the extension UI.
+- The side panel is the primary UI.
+- Open the Defuddle RS side panel from the extension action.
+- Click `Capture Active Tab` inside the panel to pull in the current page.
+- Captured pages are stored in extension session storage and parsed automatically by the panel UI.
 
 Load the extension unpacked from:
 

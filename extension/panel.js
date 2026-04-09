@@ -2,6 +2,7 @@ import { initDefuddleWasm, parse } from "./wasm/index.js";
 
 const STORAGE_KEY = "defuddle_rs_extension_state_v1";
 const CAPTURE_KEY = "defuddle_latest_capture";
+const REPO_URL = "https://github.com/npiesco/defuddle-rs";
 const SAMPLE_URL = "https://example.com/articles/clean-room-port";
 const SAMPLE_HTML = `<!DOCTYPE html>
 <html lang="en">
@@ -42,6 +43,7 @@ const state = {
 
 const elements = {
   captureActiveTab: document.querySelector("#capture-active-tab"),
+  githubLink: document.querySelector("#github-link"),
   statusBanner: document.querySelector("#status-banner"),
   wasmState: document.querySelector("#wasm-state"),
   lastRun: document.querySelector("#last-run"),
@@ -406,6 +408,18 @@ function activeTabPayload() {
   };
 }
 
+function parsedPagePayload() {
+  if (!state.result) {
+    throw new Error("There is no parsed page to copy or export yet.");
+  }
+
+  return {
+    text: state.result.content_html || "",
+    filename: "defuddle-parsed-page.html",
+    type: "text/html",
+  };
+}
+
 async function copyActiveTab() {
   const payload = activeTabPayload();
   await navigator.clipboard.writeText(payload.text);
@@ -414,6 +428,24 @@ async function copyActiveTab() {
 
 function downloadActiveTab() {
   const payload = activeTabPayload();
+  const blob = new Blob([payload.text], { type: payload.type });
+  const url = URL.createObjectURL(blob);
+  const anchor = document.createElement("a");
+  anchor.href = url;
+  anchor.download = payload.filename;
+  anchor.click();
+  URL.revokeObjectURL(url);
+  setBanner(`Downloaded ${payload.filename}.`, "success");
+}
+
+async function copyParsedPage() {
+  const payload = parsedPagePayload();
+  await navigator.clipboard.writeText(payload.text);
+  setBanner(`Copied ${payload.filename}.`, "success");
+}
+
+function exportParsedPage() {
+  const payload = parsedPagePayload();
   const blob = new Blob([payload.text], { type: payload.type });
   const url = URL.createObjectURL(blob);
   const anchor = document.createElement("a");
@@ -500,6 +532,14 @@ function wireEvents() {
       await captureActiveTab();
     }),
   );
+
+  elements.githubLink.addEventListener("click", async (event) => {
+    event.preventDefault();
+    await chrome.tabs.create({
+      url: REPO_URL,
+      active: true,
+    });
+  });
 
   document.querySelectorAll(".tab").forEach((button) => {
     button.addEventListener("click", () => setActiveTab(button.dataset.tab));
@@ -619,17 +659,17 @@ function wireEvents() {
     saveState();
   });
 
-  document.querySelector("#copy-active-button").addEventListener("click", async () => {
+  document.querySelector("#copy-page-button").addEventListener("click", async () => {
     try {
-      await copyActiveTab();
+      await copyParsedPage();
     } catch (error) {
       setBanner(error.message, "error");
     }
   });
 
-  document.querySelector("#download-active-button").addEventListener("click", () => {
+  document.querySelector("#export-page-button").addEventListener("click", () => {
     try {
-      downloadActiveTab();
+      exportParsedPage();
     } catch (error) {
       setBanner(error.message, "error");
     }
