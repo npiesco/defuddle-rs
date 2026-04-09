@@ -1,0 +1,523 @@
+<!DOCTYPE html>
+<html lang="en">
+  <head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1" />
+    <title>Defuddle RS</title>
+    <meta
+      name="description"
+      content="Defuddle RS extracts clean article markdown directly in your browser with a Rust and WebAssembly parser."
+    />
+    <style>
+      :root {
+        --bg: #f3efe6;
+        --bg-strong: #e8dece;
+        --ink: #181512;
+        --muted: #62574c;
+        --line: rgba(24, 21, 18, 0.16);
+        --card: rgba(255, 251, 245, 0.72);
+        --accent: #bd4f2d;
+        --accent-strong: #942e0e;
+        --accent-soft: rgba(189, 79, 45, 0.1);
+        --shadow: 0 20px 60px rgba(71, 44, 22, 0.12);
+      }
+
+      * {
+        box-sizing: border-box;
+      }
+
+      html {
+        scroll-behavior: smooth;
+      }
+
+      body {
+        margin: 0;
+        min-height: 100vh;
+        color: var(--ink);
+        background:
+          radial-gradient(circle at top right, rgba(189, 79, 45, 0.18), transparent 28%),
+          radial-gradient(circle at left 20%, rgba(69, 98, 129, 0.14), transparent 24%),
+          linear-gradient(180deg, #f7f1e7 0%, var(--bg) 40%, #efe6d7 100%);
+        font-family: "Avenir Next", "Segoe UI", "Helvetica Neue", sans-serif;
+      }
+
+      a {
+        color: inherit;
+      }
+
+      .shell {
+        max-width: 1180px;
+        margin: 0 auto;
+        padding: 28px 20px 64px;
+      }
+
+      .nav {
+        display: flex;
+        align-items: center;
+        justify-content: space-between;
+        gap: 16px;
+        margin-bottom: 44px;
+      }
+
+      .brand {
+        display: inline-flex;
+        align-items: center;
+        gap: 12px;
+        text-decoration: none;
+      }
+
+      .brand-mark {
+        width: 44px;
+        height: 44px;
+        display: grid;
+        place-items: center;
+        border-radius: 14px;
+        background: linear-gradient(145deg, #201810, #8b381a);
+        color: #fff6ee;
+        font-size: 18px;
+        font-weight: 800;
+        box-shadow: var(--shadow);
+      }
+
+      .brand-copy {
+        display: grid;
+        gap: 2px;
+      }
+
+      .brand-title {
+        font-size: 14px;
+        font-weight: 800;
+        letter-spacing: 0.12em;
+        text-transform: uppercase;
+      }
+
+      .brand-subtitle {
+        font-size: 12px;
+        color: var(--muted);
+      }
+
+      .nav-links {
+        display: flex;
+        align-items: center;
+        gap: 12px;
+        flex-wrap: wrap;
+      }
+
+      .nav-link,
+      .cta {
+        border: 1px solid var(--line);
+        border-radius: 999px;
+        padding: 10px 16px;
+        text-decoration: none;
+        font-size: 14px;
+      }
+
+      .cta {
+        background: var(--ink);
+        color: #f8f2e9;
+        border-color: var(--ink);
+      }
+
+      .hero {
+        display: grid;
+        grid-template-columns: minmax(0, 1.2fr) minmax(320px, 0.9fr);
+        gap: 28px;
+        align-items: stretch;
+      }
+
+      .hero-copy,
+      .hero-card,
+      .panel,
+      .feature {
+        border: 1px solid var(--line);
+        background: var(--card);
+        backdrop-filter: blur(16px);
+        box-shadow: var(--shadow);
+      }
+
+      .hero-copy {
+        border-radius: 32px;
+        padding: 38px;
+      }
+
+      .eyebrow {
+        display: inline-flex;
+        align-items: center;
+        gap: 8px;
+        border-radius: 999px;
+        background: var(--accent-soft);
+        color: var(--accent-strong);
+        padding: 8px 12px;
+        font-size: 13px;
+        font-weight: 700;
+        text-transform: uppercase;
+        letter-spacing: 0.08em;
+      }
+
+      h1,
+      h2,
+      h3 {
+        margin: 0;
+        font-family: "Iowan Old Style", "Palatino Linotype", Georgia, serif;
+        line-height: 0.95;
+      }
+
+      h1 {
+        margin-top: 18px;
+        font-size: clamp(3rem, 8vw, 6rem);
+        letter-spacing: -0.04em;
+      }
+
+      .lede {
+        margin: 22px 0 0;
+        max-width: 48rem;
+        font-size: 19px;
+        line-height: 1.6;
+        color: var(--muted);
+      }
+
+      .hero-actions {
+        display: flex;
+        gap: 14px;
+        flex-wrap: wrap;
+        margin-top: 28px;
+      }
+
+      .hero-primary,
+      .hero-secondary {
+        display: inline-flex;
+        align-items: center;
+        justify-content: center;
+        min-height: 50px;
+        padding: 0 18px;
+        border-radius: 16px;
+        text-decoration: none;
+        font-weight: 700;
+      }
+
+      .hero-primary {
+        color: #fff8f2;
+        background: linear-gradient(135deg, var(--accent), var(--accent-strong));
+      }
+
+      .hero-secondary {
+        border: 1px solid var(--line);
+        background: rgba(255, 255, 255, 0.45);
+      }
+
+      .stats {
+        display: grid;
+        grid-template-columns: repeat(3, minmax(0, 1fr));
+        gap: 12px;
+        margin-top: 28px;
+      }
+
+      .stat {
+        border-radius: 20px;
+        padding: 16px;
+        background: rgba(255, 248, 241, 0.65);
+        border: 1px solid rgba(24, 21, 18, 0.08);
+      }
+
+      .stat strong {
+        display: block;
+        font-size: 28px;
+        margin-bottom: 4px;
+      }
+
+      .stat span {
+        color: var(--muted);
+        font-size: 13px;
+      }
+
+      .hero-card {
+        border-radius: 32px;
+        padding: 26px;
+        display: grid;
+        gap: 18px;
+      }
+
+      .hero-card h2 {
+        font-size: 34px;
+      }
+
+      .stack {
+        display: grid;
+        gap: 14px;
+      }
+
+      .stack-item {
+        border-radius: 18px;
+        padding: 16px;
+        background: rgba(20, 18, 16, 0.94);
+        color: #f8f3ea;
+      }
+
+      .stack-item strong,
+      .mini-card strong {
+        display: block;
+        margin-bottom: 6px;
+        font-size: 14px;
+        letter-spacing: 0.08em;
+        text-transform: uppercase;
+      }
+
+      .stack-item p,
+      .mini-card p,
+      .panel p,
+      .feature p,
+      .footer-copy {
+        margin: 0;
+        color: inherit;
+        line-height: 1.6;
+      }
+
+      .mini-grid {
+        display: grid;
+        grid-template-columns: repeat(2, minmax(0, 1fr));
+        gap: 12px;
+      }
+
+      .mini-card {
+        border-radius: 18px;
+        padding: 16px;
+        background: rgba(255, 252, 248, 0.72);
+      }
+
+      .section-grid {
+        display: grid;
+        grid-template-columns: repeat(3, minmax(0, 1fr));
+        gap: 18px;
+        margin-top: 20px;
+      }
+
+      .panel,
+      .feature {
+        border-radius: 28px;
+        padding: 24px;
+      }
+
+      .panel h3,
+      .feature h3 {
+        font-size: 28px;
+        margin-bottom: 12px;
+      }
+
+      .section {
+        margin-top: 26px;
+      }
+
+      .section-label {
+        margin: 0 0 14px;
+        color: var(--muted);
+        font-size: 13px;
+        font-weight: 700;
+        letter-spacing: 0.12em;
+        text-transform: uppercase;
+      }
+
+      .feature-list,
+      .footer-links {
+        display: flex;
+        flex-wrap: wrap;
+        gap: 10px;
+      }
+
+      .pill {
+        border-radius: 999px;
+        padding: 8px 12px;
+        background: rgba(255, 255, 255, 0.55);
+        border: 1px solid rgba(24, 21, 18, 0.1);
+        font-size: 13px;
+      }
+
+      footer {
+        margin-top: 28px;
+        border-top: 1px solid var(--line);
+        padding-top: 20px;
+        display: flex;
+        justify-content: space-between;
+        gap: 16px;
+        flex-wrap: wrap;
+      }
+
+      .footer-links a {
+        text-decoration: none;
+        color: var(--muted);
+      }
+
+      @media (max-width: 980px) {
+        .hero,
+        .section-grid {
+          grid-template-columns: 1fr;
+        }
+      }
+
+      @media (max-width: 700px) {
+        .shell {
+          padding-inline: 14px;
+        }
+
+        .hero-copy,
+        .hero-card,
+        .panel,
+        .feature {
+          border-radius: 24px;
+          padding: 22px;
+        }
+
+        .stats,
+        .mini-grid {
+          grid-template-columns: 1fr;
+        }
+
+        h1 {
+          font-size: 3rem;
+        }
+      }
+    </style>
+  </head>
+  <body>
+    <div class="shell">
+      <nav class="nav">
+        <a class="brand" href="./">
+          <span class="brand-mark">DF</span>
+          <span class="brand-copy">
+            <span class="brand-title">Defuddle RS</span>
+            <span class="brand-subtitle">Rust + WebAssembly article extraction</span>
+          </span>
+        </a>
+        <div class="nav-links">
+          <a class="nav-link" href="https://github.com/npiesco/defuddle-rs">GitHub</a>
+          <a class="cta" href="./app/">Launch App</a>
+        </div>
+      </nav>
+
+      <main>
+        <section class="hero">
+          <article class="hero-copy">
+            <span class="eyebrow">In-browser extraction without a server</span>
+            <h1>Turn raw pages into clean markdown.</h1>
+            <p class="lede">
+              Defuddle RS is a WebAssembly-powered front end for the Rust parser in this repository.
+              Paste source HTML, load a local file, or fetch a page when the target permits browser
+              CORS, then inspect clean markdown, normalized metadata, cleaned HTML, and raw JSON in
+              one workspace.
+            </p>
+            <div class="hero-actions">
+              <a class="hero-primary" href="./app/">Open The Web App</a>
+              <a class="hero-secondary" href="https://github.com/npiesco/defuddle-rs">Read The Source</a>
+            </div>
+            <div class="stats">
+              <div class="stat">
+                <strong>WASM</strong>
+                <span>Browser-native parsing via `wasm-bindgen`</span>
+              </div>
+              <div class="stat">
+                <strong>HTML</strong>
+                <span>Paste, upload, store, and re-run source documents locally</span>
+              </div>
+              <div class="stat">
+                <strong>Export</strong>
+                <span>Copy or download markdown, cleaned HTML, and JSON results</span>
+              </div>
+            </div>
+          </article>
+
+          <aside class="hero-card">
+            <h2>Front-facing app, not a toy.</h2>
+            <div class="stack">
+              <div class="stack-item">
+                <strong>Full browser workspace</strong>
+                <p>Input mode switching, result tabs, metadata inspection, downloads, and saved drafts.</p>
+              </div>
+              <div class="stack-item">
+                <strong>Static-host friendly</strong>
+                <p>Designed for GitHub Pages with the app mounted under <code>/app/</code>.</p>
+              </div>
+            </div>
+            <div class="mini-grid">
+              <div class="mini-card">
+                <strong>Direct URL fetch</strong>
+                <p>Works when the target site exposes browser-readable CORS headers.</p>
+              </div>
+              <div class="mini-card">
+                <strong>Fallback inputs</strong>
+                <p>Upload HTML files or paste the source when the open web blocks direct reads.</p>
+              </div>
+            </div>
+          </aside>
+        </section>
+
+        <section class="section">
+          <p class="section-label">Why this shape</p>
+          <div class="section-grid">
+            <article class="panel">
+              <h3>Pages-first deployment</h3>
+              <p>
+                The site follows the same public shape as the `duckcells` Pages setup: a polished
+                root entry point for humans and a dedicated app mounted under a stable subpath.
+              </p>
+            </article>
+            <article class="panel">
+              <h3>WASM where it matters</h3>
+              <p>
+                The Rust parser stays authoritative. The browser shell is just orchestration,
+                storage, and presentation around the generated WebAssembly package.
+              </p>
+            </article>
+            <article class="panel">
+              <h3>Honest browser constraints</h3>
+              <p>
+                Arbitrary page fetching is limited by site CORS policies on static hosting. The app
+                surfaces that cleanly instead of pretending the browser can bypass it.
+              </p>
+            </article>
+          </div>
+        </section>
+
+        <section class="section">
+          <p class="section-label">App surface</p>
+          <div class="section-grid">
+            <article class="feature">
+              <h3>Source intake</h3>
+              <p>Switch between direct URL fetch, pasted HTML, and local file import without leaving the page.</p>
+              <div class="feature-list" style="margin-top: 14px;">
+                <span class="pill">URL mode</span>
+                <span class="pill">HTML editor</span>
+                <span class="pill">File upload</span>
+              </div>
+            </article>
+            <article class="feature">
+              <h3>Inspection</h3>
+              <p>Review markdown output, cleaned HTML, and canonical JSON while scanning extracted metadata.</p>
+              <div class="feature-list" style="margin-top: 14px;">
+                <span class="pill">Markdown</span>
+                <span class="pill">Clean HTML</span>
+                <span class="pill">Raw JSON</span>
+              </div>
+            </article>
+            <article class="feature">
+              <h3>Portability</h3>
+              <p>Copy to clipboard or download output artifacts directly from the browser session.</p>
+              <div class="feature-list" style="margin-top: 14px;">
+                <span class="pill">Copy</span>
+                <span class="pill">Download</span>
+                <span class="pill">Local draft restore</span>
+              </div>
+            </article>
+          </div>
+        </section>
+      </main>
+
+      <footer>
+        <p class="footer-copy">Defuddle RS is a Rust port of the Defuddle extraction pipeline with a browser-facing WebAssembly app.</p>
+        <div class="footer-links">
+          <a href="./app/">Launch App</a>
+          <a href="https://github.com/npiesco/defuddle-rs">GitHub</a>
+          <a href="https://github.com/npiesco/defuddle-rs#readme">README</a>
+        </div>
+      </footer>
+    </div>
+  </body>
+</html>

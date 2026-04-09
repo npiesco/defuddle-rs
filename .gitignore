@@ -2,6 +2,9 @@
 .env
 node_modules/
 packages/defuddle-wasm/pkg/
+.cargo-home/
+.wasm-pack-cache/
+dist/
 *.db
 *.db.*
 data/

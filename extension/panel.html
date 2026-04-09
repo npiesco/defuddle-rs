@@ -1,0 +1,213 @@
+<!DOCTYPE html>
+<html lang="en">
+  <head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1" />
+    <title>Defuddle RS Extension</title>
+    <meta
+      name="description"
+      content="Parse HTML into clean markdown from the active tab with the Defuddle RS browser extension."
+    />
+    <link rel="stylesheet" href="./panel.css" />
+  </head>
+  <body>
+    <div class="app-shell">
+      <header class="topbar">
+        <a class="brand" href="./panel.html">
+          <span class="brand-mark">DF</span>
+          <span class="brand-copy">
+            <strong>Defuddle RS</strong>
+            <span>Extension parser workspace</span>
+          </span>
+        </a>
+        <div class="topbar-actions">
+          <button id="load-sample" class="button button-ghost" type="button">Load Sample</button>
+          <a class="button button-ghost" href="https://github.com/npiesco/defuddle-rs">GitHub</a>
+        </div>
+      </header>
+
+      <main class="workspace">
+        <section class="panel input-panel">
+          <div class="panel-header">
+            <div>
+              <p class="eyebrow">Input</p>
+              <h1>Capture a tab or bring your own source.</h1>
+            </div>
+            <div class="mode-switch" role="tablist" aria-label="Input mode">
+              <button id="mode-url" class="mode-chip is-active" type="button" data-mode="url">URL</button>
+              <button id="mode-html" class="mode-chip" type="button" data-mode="html">HTML</button>
+              <button id="mode-file" class="mode-chip" type="button" data-mode="file">File</button>
+            </div>
+          </div>
+
+          <p class="supporting">
+            Click the extension on any page to capture that tab directly, or use URL, HTML, and File
+            mode here. Because this UI runs as an extension page with host permissions, URL mode is
+            not bound by ordinary website CORS behavior.
+          </p>
+
+          <div id="status-banner" class="status-banner" hidden></div>
+
+          <section class="panel inset-panel">
+            <div class="panel-header compact">
+              <div>
+                <p class="eyebrow">Capture</p>
+                <h2>Last captured tab</h2>
+              </div>
+            </div>
+            <div class="runtime-grid">
+              <div class="runtime-card">
+                <span class="runtime-label">Title</span>
+                <strong id="capture-title">None</strong>
+              </div>
+              <div class="runtime-card">
+                <span class="runtime-label">URL</span>
+                <strong id="capture-url">None</strong>
+              </div>
+              <div class="runtime-card">
+                <span class="runtime-label">Captured</span>
+                <strong id="capture-time">Not yet</strong>
+              </div>
+            </div>
+          </section>
+
+          <section id="url-pane" class="mode-pane is-active">
+            <label class="field">
+              <span>URL</span>
+              <input id="url-input" type="url" placeholder="https://example.com/article" />
+            </label>
+            <div class="action-row">
+              <button id="fetch-parse-button" class="button button-primary" type="button">Fetch And Parse</button>
+              <button id="direct-parse-button" class="button button-ghost" type="button">Parse Current HTML Draft</button>
+            </div>
+          </section>
+
+          <section id="html-pane" class="mode-pane">
+            <label class="field">
+              <span>Source URL</span>
+              <input id="html-url-input" type="url" placeholder="https://example.com/article" />
+            </label>
+            <label class="field">
+              <span>HTML</span>
+              <textarea id="html-input" placeholder="Paste page HTML here"></textarea>
+            </label>
+            <div class="action-row">
+              <button id="parse-html-button" class="button button-primary" type="button">Parse HTML</button>
+              <button id="clear-html-button" class="button button-ghost" type="button">Clear</button>
+            </div>
+          </section>
+
+          <section id="file-pane" class="mode-pane">
+            <div id="dropzone" class="dropzone">
+              <div>
+                <strong>Drop an HTML file here</strong>
+                <p>or choose one from disk</p>
+              </div>
+              <label class="button button-primary" for="file-input">Choose File</label>
+              <input id="file-input" type="file" accept=".html,.htm,.txt,text/html" hidden />
+            </div>
+            <div class="field compact-field">
+              <span>Imported file</span>
+              <div id="file-name" class="readout">No file loaded</div>
+            </div>
+            <div class="action-row">
+              <button id="parse-file-button" class="button button-primary" type="button">Parse Imported File</button>
+              <button id="use-file-as-draft-button" class="button button-ghost" type="button">Move Into HTML Draft</button>
+            </div>
+          </section>
+
+          <section class="panel inset-panel">
+            <div class="panel-header compact">
+              <div>
+                <p class="eyebrow">Runtime</p>
+                <h2>Parser state</h2>
+              </div>
+            </div>
+            <div class="runtime-grid">
+              <div class="runtime-card">
+                <span class="runtime-label">WASM</span>
+                <strong id="wasm-state">Booting</strong>
+              </div>
+              <div class="runtime-card">
+                <span class="runtime-label">Last run</span>
+                <strong id="last-run">Not yet</strong>
+              </div>
+              <div class="runtime-card">
+                <span class="runtime-label">Draft bytes</span>
+                <strong id="draft-bytes">0 B</strong>
+              </div>
+            </div>
+          </section>
+        </section>
+
+        <section class="panel output-panel">
+          <div class="panel-header">
+            <div>
+              <p class="eyebrow">Output</p>
+              <h2>Inspect the extracted document.</h2>
+            </div>
+            <div class="action-row tight">
+              <button id="copy-active-button" class="button button-ghost" type="button">Copy Active Tab</button>
+              <button id="download-active-button" class="button button-ghost" type="button">Download Active Tab</button>
+            </div>
+          </div>
+
+          <div id="summary-empty" class="empty-state">
+            Click the extension on a page or run one of the parser flows here.
+          </div>
+
+          <section id="summary-panel" class="summary-panel" hidden>
+            <div class="summary-grid">
+              <div class="summary-card">
+                <span>Title</span>
+                <strong id="summary-title">-</strong>
+              </div>
+              <div class="summary-card">
+                <span>Site</span>
+                <strong id="summary-site">-</strong>
+              </div>
+              <div class="summary-card">
+                <span>Author</span>
+                <strong id="summary-author">-</strong>
+              </div>
+              <div class="summary-card">
+                <span>Published</span>
+                <strong id="summary-published">-</strong>
+              </div>
+              <div class="summary-card">
+                <span>Language</span>
+                <strong id="summary-language">-</strong>
+              </div>
+              <div class="summary-card">
+                <span>Word count</span>
+                <strong id="summary-word-count">-</strong>
+              </div>
+            </div>
+
+            <div class="tab-row" role="tablist" aria-label="Result tabs">
+              <button class="tab is-active" type="button" data-tab="markdown">Markdown</button>
+              <button class="tab" type="button" data-tab="html">Clean HTML</button>
+              <button class="tab" type="button" data-tab="json">JSON</button>
+              <button class="tab" type="button" data-tab="preview">Preview</button>
+            </div>
+
+            <div id="tab-markdown" class="tab-panel is-active">
+              <pre id="markdown-output" class="code-block"></pre>
+            </div>
+            <div id="tab-html" class="tab-panel">
+              <pre id="html-output" class="code-block"></pre>
+            </div>
+            <div id="tab-json" class="tab-panel">
+              <pre id="json-output" class="code-block"></pre>
+            </div>
+            <div id="tab-preview" class="tab-panel">
+              <iframe id="preview-frame" class="preview-frame" sandbox=""></iframe>
+            </div>
+          </section>
+        </section>
+      </main>
+    </div>
+
+    <script type="module" src="./panel.js"></script>
+  </body>
+</html>

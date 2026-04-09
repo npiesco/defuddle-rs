@@ -14,6 +14,8 @@ Drop in a URL or raw HTML. Get back the article content as clean markdown — no
 
 Built as a native Rust library. No Node.js. No headless browser. No external dependencies at runtime.
 
+The primary end-user surface in this repo is now a browser extension. Click the extension on any page to capture the current tab, then parse and inspect the extracted article locally with the bundled WASM UI.
+
 ```rust
 use defuddle_rs::Defuddle;
 
@@ -145,6 +147,47 @@ const result = parse(htmlString, "https://example.com/article");
 console.log(result.title);
 console.log(result.content_markdown);
 ```
+
+## Browser Extension
+
+This repo includes an extension-first workflow under `extension/`.
+
+- Click the extension on any page to capture that tab's HTML directly.
+- The extension opens `panel.html`, which runs the same WASM parser locally.
+- Captured pages are stored in extension session storage and parsed automatically by the extension UI.
+
+Load the extension unpacked from:
+
+```bash
+extension/
+```
+
+Typical dev flow:
+
+```bash
+npm run build:wasm
+npm run build:extension
+```
+
+To refresh the extension's bundled WASM assets after rebuilding the Rust package:
+
+```bash
+npm run build:extension
+```
+
+## Browser App
+
+This repo still includes a static browser app build, but it is now secondary to the extension workflow.
+
+- `/` → in-browser workspace for pasted HTML, file import, and demo usage
+
+Build the static Pages bundle with:
+
+```bash
+npm run build
+```
+
+The build emits `dist/`, with the app mounted at the site root.
 
 ---
 
