@@ -1,4 +1,5 @@
 const PANEL_PATH = "panel.html";
+const CAPTURE_KEY = "defuddle_latest_capture";
 
 function extensionPagePrefix() {
   return chrome.runtime.getURL("");
@@ -29,7 +30,7 @@ async function getOrCreatePanelTab() {
 
 async function storeCapture(payload) {
   await chrome.storage.session.set({
-    defuddle_latest_capture: payload,
+    [CAPTURE_KEY]: payload,
   });
 }
 
@@ -48,8 +49,16 @@ async function captureTab(tabId) {
   }
 }
 
-async function handleCaptureFromTab(tab) {
-  if (!tab.id || !tab.url || isExtensionPage(tab.url)) {
+async function getCurrentPageTab() {
+  const tabs = await chrome.tabs.query({
+    active: true,
+    lastFocusedWindow: true,
+  });
+  return tabs.find((tab) => tab.id && tab.url && !isExtensionPage(tab.url)) || null;
+}
+
+async function handleCaptureFromTab(tab, { openPanel = true } = {}) {
+  if (!tab?.id || !tab.url || isExtensionPage(tab.url)) {
     return;
   }
 
@@ -59,9 +68,63 @@ async function handleCaptureFromTab(tab) {
   }
 
   await storeCapture(payload);
-  await getOrCreatePanelTab();
+  if (openPanel) {
+    await chrome.sidePanel.open({ windowId: tab.windowId });
+  }
 }
 
-chrome.action.onClicked.addListener(async (tab) => {
-  await handleCaptureFromTab(tab);
+async function enableSidePanelAction() {
+  try {
+    await chrome.sidePanel.setPanelBehavior({ openPanelOnActionClick: true });
+  } catch (_error) {
+    // Ignore when the API is unavailable in older Chromium builds.
+  }
+}
+
+chrome.runtime.onInstalled.addListener(enableSidePanelAction);
+chrome.runtime.onStartup.addListener(enableSidePanelAction);
+enableSidePanelAction();
+
+chrome.runtime.onMessage.addListener((message, _sender, sendResponse) => {
+  if (!message || typeof message !== "object") {
+    return undefined;
+  }
+
+  if (message.type === "DEFUDDLE_CAPTURE_ACTIVE_TAB") {
+    (async () => {
+      const tab = await getCurrentPageTab();
+      if (!tab) {
+        sendResponse({ ok: false, error: "No active page tab was available to capture." });
+        return;
+      }
+
+      const payload = await captureTab(tab.id);
+      if (!payload) {
+        sendResponse({ ok: false, error: "The extension could not capture the current tab." });
+        return;
+      }
+
+      await storeCapture(payload);
+      sendResponse({ ok: true, payload });
+    })();
+
+    return true;
+  }
+
+  if (message.type === "DEFUDDLE_OPEN_PANEL_FOR_ACTIVE_TAB") {
+    (async () => {
+      const tab = await getCurrentPageTab();
+      if (!tab) {
+        sendResponse({ ok: false, error: "No active page tab was available." });
+        return;
+      }
+
+      await chrome.sidePanel.open({ windowId: tab.windowId });
+      sendResponse({ ok: true });
+    })();
+
+    return true;
+  }
+
+  return undefined;
 });

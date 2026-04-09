@@ -41,6 +41,7 @@ const state = {
 };
 
 const elements = {
+  captureActiveTab: document.querySelector("#capture-active-tab"),
   statusBanner: document.querySelector("#status-banner"),
   wasmState: document.querySelector("#wasm-state"),
   lastRun: document.querySelector("#last-run"),
@@ -450,6 +451,22 @@ async function maybeImportLatestCapture() {
   setBanner(`Imported ${payload.url || "captured tab"} from the extension.`, "success");
 }
 
+async function captureActiveTab() {
+  const response = await chrome.runtime.sendMessage({
+    type: "DEFUDDLE_CAPTURE_ACTIVE_TAB",
+  });
+
+  if (!response?.ok) {
+    throw new Error(response?.error || "The extension could not capture the active tab.");
+  }
+
+  const payload = response.payload;
+  updateCaptureSummary(payload);
+  parseHtml(payload.html, payload.url || "https://example.com/article");
+  setMode("html");
+  setBanner(`Captured ${payload.url || "active tab"} into the side panel.`, "success");
+}
+
 function wireEvents() {
   chrome.storage.onChanged.addListener((changes, areaName) => {
     if (areaName !== "session" || !changes[CAPTURE_KEY]) {
@@ -475,6 +492,14 @@ function wireEvents() {
   document.querySelectorAll(".mode-chip").forEach((button) => {
     button.addEventListener("click", () => setMode(button.dataset.mode));
   });
+
+  elements.captureActiveTab.addEventListener(
+    "click",
+    withBusyState(elements.captureActiveTab, "Capturing…", async () => {
+      clearBanner();
+      await captureActiveTab();
+    }),
+  );
 
   document.querySelectorAll(".tab").forEach((button) => {
     button.addEventListener("click", () => setActiveTab(button.dataset.tab));
