@@ -4,7 +4,7 @@
 
   [![Rust](https://img.shields.io/badge/rust-2024%20edition-orange.svg)](https://www.rust-lang.org/)
   [![License](https://img.shields.io/badge/license-MIT-blue.svg)](LICENSE)
-  [![Tests](https://img.shields.io/badge/tests-24-success)]()
+  [![Tests](https://img.shields.io/badge/tests-30-success)]()
   [![Parity](https://img.shields.io/badge/defuddle%20parity-100%25-brightgreen)]()
 </div>
 
@@ -15,6 +15,10 @@ Drop in a URL or raw HTML. Get back the article content as clean markdown — no
 Built as a native Rust library. No Node.js. No headless browser. No external dependencies at runtime.
 
 The primary end-user surface in this repo is now a browser extension. Click the extension on any page to capture the current tab, then parse and inspect the extracted article locally with the bundled WASM UI.
+
+The repo also now ships a local MCP server binary for assistants and editor integrations over stdio or streamable HTTP.
+
+The same Rust crate now also exposes a Python package via UniFFI under `bindings/python/`, with parity for the parser-facing operations already exposed through MCP: full parse, fetch-and-parse, metadata-only extraction, and markdown-only extraction.
 
 ```rust
 use defuddle_rs::Defuddle;
@@ -104,6 +108,54 @@ Fetch a URL with reqwest and parse the response.
 
 ---
 
+## Python Bindings
+
+The Python package is named `defuddle-py` and imports as `defuddle`.
+
+The current Python surface mirrors the parser-facing MCP tools:
+
+- `DefuddleParser.parse_html(html, url)`
+- `DefuddleParser.fetch_and_parse_url(url)`
+- `DefuddleParser.extract_metadata(html, url)`
+- `DefuddleParser.extract_markdown(html, url)`
+
+Build and install from source:
+
+```bash
+cargo build --release
+cargo run --bin uniffi-bindgen -- generate \
+    --library target/release/libdefuddle_rs.so \
+    --language python \
+    --out-dir bindings/python/defuddle
+cp target/release/libdefuddle_rs.so bindings/python/defuddle/
+
+uv venv /tmp/defuddle-py-uv
+UV_CACHE_DIR=/tmp/uv-cache uv pip install --python /tmp/defuddle-py-uv/bin/python -e bindings/python
+```
+
+Smoke test:
+
+```bash
+/tmp/defuddle-py-uv/bin/python -c "from pathlib import Path; from defuddle import DefuddleParser; html = Path('tests/fixtures/example.html').read_text(); parser = DefuddleParser(); result = parser.extract_markdown(html, 'https://example.com'); print(result.title); print(result.word_count)"
+```
+
+Expected output:
+
+```text
+Example Domain
+17
+```
+
+Notes:
+
+- Linux library name: `libdefuddle_rs.so`
+- macOS library name: `libdefuddle_rs.dylib`
+- Windows library name: `defuddle_rs.dll`
+- The generated UniFFI wrapper is written to `bindings/python/defuddle/defuddle_rs.py`
+- The native library must sit beside that generated file before installing the package
+
+---
+
 ## Dependencies
 
 | Crate | Purpose |
@@ -126,6 +178,41 @@ No `scraper`. No `html5ever` directly. `dom_query` handles the DOM with full mut
 cargo build --release
 cargo test
 ```
+
+## MCP Server
+
+Build the release MCP binary:
+
+```bash
+cargo build --release --bin defuddle-mcp
+```
+
+Or:
+
+```bash
+npm run build:mcp:release
+```
+
+Run over stdio:
+
+```bash
+target/release/defuddle-mcp
+```
+
+Run over streamable HTTP:
+
+```bash
+target/release/defuddle-mcp http --bind 127.0.0.1:8080 --path /mcp
+```
+
+The current MCP tools are:
+
+- `parse_html`
+- `fetch_and_parse_url`
+- `extract_metadata`
+- `extract_markdown`
+
+See [MCP.md](MCP.md) for config examples and transport details.
 
 ## WebAssembly
 

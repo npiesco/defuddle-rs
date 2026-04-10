@@ -7,6 +7,7 @@
     "build:wasm": "WASM_PACK_CACHE=.wasm-pack-cache npm --prefix packages/defuddle-wasm run build",
     "build:extension": "node scripts/build-extension.mjs",
     "build:site": "node scripts/build-pages.mjs",
+    "build:mcp:release": "cargo build --release --bin defuddle-mcp",
     "build": "npm run build:wasm && npm run build:extension && npm run build:site",
     "test:wasm-browser": "npm --prefix tests/wasm-smoke run test"
   }

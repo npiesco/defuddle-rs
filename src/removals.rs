@@ -36,19 +36,17 @@ fn remove_hidden(doc: &Document, main_id: Option<dom_query::NodeId>) {
             .unwrap_or_default()
             .to_string()
             .to_lowercase();
-        if style.contains("display:none")
+        if (style.contains("display:none")
             || style.contains("display: none")
             || style.contains("visibility:hidden")
             || style.contains("visibility: hidden")
             || style.contains("opacity:0")
-            || style.contains("opacity: 0")
-        {
-            if !Selection::from(node.clone())
+            || style.contains("opacity: 0"))
+            && !Selection::from(*node)
                 .select("math, [data-mathml], .katex-mathml")
                 .exists()
-            {
-                node.remove_from_parent();
-            }
+        {
+            node.remove_from_parent();
         }
     }
     for node in doc.select(".hidden, .invisible").nodes().iter() {
@@ -184,7 +182,7 @@ fn score_non_content(node: &NodeRef) -> f64 {
         }
     }
 
-    let link_count = Selection::from(node.clone()).select("a").length();
+    let link_count = Selection::from(*node).select("a").length();
     if link_count as f64 / words.max(1) as f64 > 0.5 {
         score -= 15.0;
     }
@@ -267,7 +265,7 @@ fn is_likely_content(node: &NodeRef) -> bool {
             return true;
         }
     }
-    if Selection::from(node.clone())
+    if Selection::from(*node)
         .select(CONTENT_ELEMENT_SELECTOR)
         .exists()
     {
@@ -275,8 +273,8 @@ fn is_likely_content(node: &NodeRef) -> bool {
     }
 
     let words = node.text().split_whitespace().count();
-    let p_count = Selection::from(node.clone()).select("p").length();
-    let li_count = Selection::from(node.clone()).select("li").length();
+    let p_count = Selection::from(*node).select("p").length();
+    let li_count = Selection::from(*node).select("li").length();
     if words > 50 && (p_count + li_count) > 1 {
         return true;
     }

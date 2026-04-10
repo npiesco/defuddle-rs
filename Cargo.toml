@@ -11,6 +11,10 @@ description = "Clean-room Rust port of defuddle — extract clean markdown from 
 [lib]
 crate-type = ["cdylib", "rlib"]
 
+[[bin]]
+name = "uniffi-bindgen"
+path = "src/bin/uniffi_bindgen.rs"
+
 [dependencies]
 regex = "1"
 url = "2"
@@ -19,16 +23,24 @@ serde_json = "1"
 thiserror = "2"
 tracing = "0.1"
 dom_query = "0.27.0"
+schemars = "1.2.1"
+uniffi = { version = "0.31.0", features = ["cli", "tokio"] }
 
 [target.'cfg(not(target_arch = "wasm32"))'.dependencies]
-reqwest = { version = "0.12", features = ["json"] }
+reqwest = { version = "0.12", default-features = false, features = ["json", "native-tls", "rustls-tls-native-roots", "rustls-tls-webpki-roots"] }
 tokio = { version = "1", features = ["rt", "macros"] }
+rmcp = { version = "1.3.0", features = ["server", "macros", "transport-io", "transport-streamable-http-server"] }
+axum = { version = "0.8", features = ["http1", "tokio"], default-features = false }
 
 [target.'cfg(target_arch = "wasm32")'.dependencies]
 wasm-bindgen = "0.2"
 
 [dev-dependencies]
 tokio = { version = "1", features = ["full"] }
+rmcp = { version = "1.3.0", features = ["client", "server", "macros", "transport-io", "transport-streamable-http-client-reqwest"] }
+
+[build-dependencies]
+uniffi = { version = "0.31.0", features = ["build"] }
 
 [features]
 default = []

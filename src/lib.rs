@@ -4,19 +4,27 @@ pub mod extractors;
 #[cfg(not(target_arch = "wasm32"))]
 pub mod fetch;
 pub mod markdown;
+#[cfg(not(target_arch = "wasm32"))]
+pub mod mcp;
 pub mod metadata;
+#[cfg(not(target_arch = "wasm32"))]
+pub mod python_api;
 pub mod removals;
 pub mod scoring;
 pub mod standardize;
 
 use dom_query::Document;
+use schemars::JsonSchema;
 use serde::{Deserialize, Serialize};
 use url::Url;
 
 #[cfg(target_arch = "wasm32")]
 use wasm_bindgen::prelude::*;
 
-#[derive(Debug, Clone, Serialize, Deserialize)]
+#[cfg(not(target_arch = "wasm32"))]
+uniffi::setup_scaffolding!();
+
+#[derive(Debug, Clone, Serialize, Deserialize, JsonSchema)]
 pub struct DefuddleResult {
     pub title: String,
     pub author: Option<String>,
@@ -133,8 +141,9 @@ struct WasmErrorResponse<'a> {
 #[wasm_bindgen(js_name = parseJson)]
 pub fn wasm_parse_json(html: &str, url: &str) -> String {
     match Defuddle::parse(html, url) {
-        Ok(result) => serde_json::to_string(&result)
-            .unwrap_or_else(|e| format!("{{\"error\":\"{}\"}}", e)),
+        Ok(result) => {
+            serde_json::to_string(&result).unwrap_or_else(|e| format!("{{\"error\":\"{}\"}}", e))
+        }
         Err(error) => {
             let msg = error.to_string();
             serde_json::to_string(&WasmErrorResponse { error: &msg })

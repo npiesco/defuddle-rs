@@ -1,0 +1,113 @@
+name: MCP Release
+
+on:
+  pull_request:
+    paths:
+      - Cargo.toml
+      - Cargo.lock
+      - README.md
+      - MCP.md
+      - src/**
+      - tests/**
+      - .github/workflows/mcp-release.yml
+  push:
+    branches:
+      - main
+    paths:
+      - Cargo.toml
+      - Cargo.lock
+      - README.md
+      - MCP.md
+      - src/**
+      - tests/**
+      - .github/workflows/mcp-release.yml
+  workflow_dispatch:
+  release:
+    types:
+      - published
+
+permissions:
+  contents: write
+
+jobs:
+  mcp-release-smoke:
+    name: MCP release smoke
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Install Rust toolchain
+        uses: dtolnay/rust-toolchain@stable
+
+      - name: Run MCP integration tests
+        run: cargo test --test mcp_server_test --test mcp_http_test
+
+      - name: Build release MCP binary
+        run: cargo build --release --bin defuddle-mcp
+
+      - name: Verify release binary boots
+        run: target/release/defuddle-mcp --help
+
+  package-mcp:
+    name: Package MCP binary
+    if: github.event_name == 'workflow_dispatch' || github.event_name == 'release'
+    strategy:
+      fail-fast: false
+      matrix:
+        include:
+          - os: ubuntu-latest
+            artifact_name: defuddle-mcp-linux-x86_64
+            binary_path: target/release/defuddle-mcp
+            archive_name: defuddle-mcp-linux-x86_64.tar.gz
+          - os: macos-latest
+            artifact_name: defuddle-mcp-macos-x86_64
+            binary_path: target/release/defuddle-mcp
+            archive_name: defuddle-mcp-macos-x86_64.tar.gz
+          - os: windows-latest
+            artifact_name: defuddle-mcp-windows-x86_64
+            binary_path: target/release/defuddle-mcp.exe
+            archive_name: defuddle-mcp-windows-x86_64.zip
+    runs-on: ${{ matrix.os }}
+
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Install Rust toolchain
+        uses: dtolnay/rust-toolchain@stable
+
+      - name: Build release MCP binary
+        run: cargo build --release --bin defuddle-mcp
+
+      - name: Package release archive (Unix)
+        if: runner.os != 'Windows'
+        run: |
+          mkdir -p package
+          cp "${{ matrix.binary_path }}" package/
+          cp README.md package/
+          cp MCP.md package/
+          tar -czf "${{ matrix.archive_name }}" -C package .
+
+      - name: Package release archive (Windows)
+        if: runner.os == 'Windows'
+        shell: pwsh
+        run: |
+          New-Item -ItemType Directory -Force -Path package | Out-Null
+          Copy-Item "${{ matrix.binary_path }}" package/
+          Copy-Item README.md package/
+          Copy-Item MCP.md package/
+          Compress-Archive -Path package/* -DestinationPath "${{ matrix.archive_name }}" -Force
+
+      - name: Upload packaged artifact
+        uses: actions/upload-artifact@v4
+        with:
+          name: ${{ matrix.artifact_name }}
+          path: ${{ matrix.archive_name }}
+
+      - name: Attach archive to GitHub release
+        if: github.event_name == 'release'
+        uses: softprops/action-gh-release@v2
+        with:
+          files: ${{ matrix.archive_name }}

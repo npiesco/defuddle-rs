@@ -15,7 +15,7 @@ pub fn convert(html: &str) -> String {
 
 fn convert_node(node: &NodeRef, output: &mut String) {
     if node.is_text() {
-        output.push_str(&node.text().to_string());
+        output.push_str(node.text().as_ref());
         return;
     }
     if !node.is_element() {
@@ -67,7 +67,7 @@ fn convert_node(node: &NodeRef, output: &mut String) {
             output.push('`');
         }
         "pre" => {
-            let lang = Selection::from(node.clone())
+            let lang = Selection::from(*node)
                 .select("code")
                 .attr("class")
                 .map(|c| {
@@ -90,11 +90,10 @@ fn convert_node(node: &NodeRef, output: &mut String) {
                 .attr("aria-hidden")
                 .map(|v| v.to_string() == "true")
                 .unwrap_or(false);
-            if href.is_empty() || href.starts_with("javascript:") || aria {
-                convert_children(node, output);
-            } else if Selection::from(node.clone())
+            let contains_block_children = Selection::from(*node)
                 .select("p, div, ul, ol, table, blockquote, section, article")
-                .exists()
+                .exists();
+            if href.is_empty() || href.starts_with("javascript:") || aria || contains_block_children
             {
                 convert_children(node, output);
             } else {
@@ -212,7 +211,7 @@ fn convert_table(node: &NodeRef, output: &mut String) {
             })
             .map(|cell| {
                 let mut md = String::new();
-                convert_children(&cell, &mut md);
+                convert_children(cell, &mut md);
                 md.trim()
                     .replace('\n', " ")
                     .replace('|', "\\|")
