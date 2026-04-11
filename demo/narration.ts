@@ -1,8 +1,8 @@
 /**
- * Pre-written narration segments for the fsgdb demo.
+ * Pre-written narration segments for the defuddle demo.
  *
- * This mirrors the Duckcells approach: narration is written ahead of time,
- * attached to major scenes, then aligned to edited segments in post.
+ * Each major surface gets its own narration block so post can fit audio to the
+ * actual recorded segment duration instead of forcing one long narration track.
  */
 export interface NarrationSegment {
   phase: number;
@@ -14,87 +14,45 @@ export interface NarrationSegment {
 export const NARRATION_SCRIPT: NarrationSegment[] = [
   {
     phase: 1,
-    label: 'General Problem Setup',
+    label: 'Hook',
     text:
-      'Playwright already supports browser targets like Chromium, Edge, and Firefox. ' +
-      'That works because those runtimes expose stable seams for launching, attaching, and driving them. ' +
-      'The question is what it would take for another engine to fit that model.',
-    narrationEstimate: 11,
+      'Start on a noisy technical page. The useful part is the article body, not the forum chrome around it.',
+    narrationEstimate: 8,
   },
   {
     phase: 2,
-    label: 'Shared Human Agent Model',
+    label: 'Browser Extension',
     text:
-      'This is not a solo investigation. You inspect the codebase directly and visually. ' +
-      'I reason over it structurally as the agent. f s g d b is the shared map between us.',
-    narrationEstimate: 9,
-  },
-  {
-    phase: 3,
-    label: 'Clone Servo and Build the Graph',
-    text:
-      'For the case study, we use Servo. We clone the repository and scan it once into a local graph database. ' +
-      'From this point on, both of us work from the same structural model of the codebase.',
+      'The browser extension captures the active SQLite page and opens the side panel on that same tab. The extraction result is already clean: title, metadata, and readable markdown.',
     narrationEstimate: 12,
   },
   {
-    phase: 4,
-    label: 'CLI Proof of Life',
+    phase: 3,
+    label: 'Rust Crate',
     text:
-      'You start with the raw database. Before trusting any visualization or any agent answer, ' +
-      'you inspect the graph directly from the command line. Stats and targeted queries give you a first pass ' +
-      'at where startup, embedding, testing, and control surfaces might live.',
-    narrationEstimate: 14,
+      'Now the same extraction runs directly from the Rust crate. This proves the extension is just one surface over the real parser core.',
+    narrationEstimate: 10,
+  },
+  {
+    phase: 4,
+    label: 'Python Bindings',
+    text:
+      'The Python bindings expose that same engine to scripts and workflows. Same page, same parser, same core result.',
+    narrationEstimate: 10,
   },
   {
     phase: 5,
-    label: 'Open Isolated VS Code Session',
+    label: 'MCP',
     text:
-      'Now we switch to the editor surface. The extension runs in an isolated V S Code session, ' +
-      'but it points at the same graph database. This is the same structural model, just in a different interface.',
-    narrationEstimate: 11,
+      'Through MCP, Copilot can call defuddle as a tool, fetch the live page, and work from the extracted content instead of raw page chrome.',
+    narrationEstimate: 12,
   },
   {
     phase: 6,
-    label: 'Query Editor Investigation',
+    label: 'Close',
     text:
-      'In the query editor, you move from the whole repository to a smaller set of candidate areas. ' +
-      'You use Cypher to narrow the search around startup, embedding, testing, and other automation relevant seams.',
-    narrationEstimate: 11,
-  },
-  {
-    phase: 7,
-    label: 'Graph Visualization Investigation',
-    text:
-      'The graph view turns query results into structure. Now you can see whether likely control points are centralized, ' +
-      'fragmented, or deeply coupled. This is where architectural intuition starts to form.',
-    narrationEstimate: 11,
-  },
-  {
-    phase: 8,
-    label: 'Agent Deep Dive',
-    text:
-      'Once you have narrowed the search visually, I use the same graph as a structural reasoning layer. ' +
-      'I trace likely entry points, dependencies, call paths, tests, and change risk. ' +
-      'I am not guessing from file names. I am following how the codebase is actually connected.',
-    narrationEstimate: 16,
-  },
-  {
-    phase: 9,
-    label: 'Joint Conclusion',
-    text:
-      'Now we can answer the real question with shared evidence. We know which seams look promising, ' +
-      'which areas are more tightly coupled, and what we would validate next if we wanted to pursue a Playwright integration path.',
-    narrationEstimate: 13,
-  },
-  {
-    phase: 10,
-    label: 'Broader Payoff',
-    text:
-      'Servo is the example. The broader point is that f s g d b gives a developer and an agent the same map of a codebase. ' +
-      'You can inspect it directly. I can reason over it structurally. ' +
-      'And together we can evaluate unfamiliar systems with less guesswork.',
-    narrationEstimate: 14,
+      'One parser. Four surfaces. Same result.',
+    narrationEstimate: 6,
   },
 ];
 
@@ -104,11 +62,12 @@ export interface SegmentGroup {
 }
 
 export const SEGMENT_GROUPS: SegmentGroup[] = [
-  { segPrefix: 'seg_01', phases: [1, 2, 3] },
-  { segPrefix: 'seg_02', phases: [4] },
-  { segPrefix: 'seg_03', phases: [5, 6] },
-  { segPrefix: 'seg_04', phases: [7] },
-  { segPrefix: 'seg_05', phases: [8, 9, 10] },
+  { segPrefix: 'seg_01', phases: [1] },
+  { segPrefix: 'seg_02', phases: [2] },
+  { segPrefix: 'seg_03', phases: [3] },
+  { segPrefix: 'seg_04', phases: [4] },
+  { segPrefix: 'seg_05', phases: [5] },
+  { segPrefix: 'seg_06', phases: [6] },
 ];
 
 export function buildSSML(

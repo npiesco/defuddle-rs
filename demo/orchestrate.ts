@@ -1,14 +1,8 @@
 /**
- * fsgdb Demo Orchestrator
+ * defuddle Demo Orchestrator
  *
- * Modeled after the Duckcells orchestrator, but currently focused on:
- * - preflight checks
- * - output preparation
- * - deterministic command plan emission
- * - placeholder hooks for recording, narration, and final merge
- *
- * This is the skeleton that the actual terminal / VS Code / MCP drivers
- * will plug into next.
+ * This copied scaffold now targets defuddle's six-scene flow:
+ * hook, browser extension, Rust crate, Python bindings, MCP, and close.
  */
 import { existsSync, mkdirSync, readdirSync, readFileSync, rmSync, statSync, unlinkSync, writeFileSync } from 'node:fs';
 import { spawnSync } from 'node:child_process';
@@ -150,7 +144,7 @@ function persistTimeline(doc: TimelineDocument): void {
 }
 
 function preflight(): void {
-  console.log('=== fsgdb Demo Orchestrator ===\n');
+  console.log('=== defuddle Demo Orchestrator ===\n');
 
   mkdirSync(OUTPUT_DIR, { recursive: true });
   console.log(`[✓] Output directory: ${OUTPUT_DIR}`);
@@ -298,6 +292,7 @@ function summarizeExpectedArtifacts(): void {
     path.join(OUTPUT_DIR, SEGMENTS.VSCODE_QUERY),
     path.join(OUTPUT_DIR, SEGMENTS.VSCODE_GRAPH),
     path.join(OUTPUT_DIR, SEGMENTS.AGENT),
+    path.join(OUTPUT_DIR, SEGMENTS.CLOSE),
     path.join(OUTPUT_DIR, 'agent_scene.json'),
     path.join(OUTPUT_DIR, 'agent_initial_prompt.txt'),
   ];
@@ -729,9 +724,9 @@ async function main(): Promise<void> {
   printTimingSummary(timeline);
 
   console.log('Next implementation steps:');
-  console.log('  1. Use dry-run timing data to tighten segment narration lengths');
-  console.log('  2. Add real Copilot terminal launch/seed flow for the agent scene');
-  console.log('  3. Validate candycam window targeting end-to-end');
+  console.log('  1. Record the six defuddle segments with their final output filenames');
+  console.log('  2. Feed those segment durations into the per-segment narration fit pass');
+  console.log('  3. Run concat, TTS, and final mux on the real segment set');
   console.log(
     `  4. Mode: dryRun=${DEMO_FLAGS.DRY_RUN} narration=${DEMO_FLAGS.SYNTH_NARRATION} merge=${DEMO_FLAGS.MERGE_VIDEO}`,
   );

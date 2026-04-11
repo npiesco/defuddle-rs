@@ -4,24 +4,26 @@ import shutil
 from pathlib import Path
 
 
-ROOT_DIR = Path(__file__).resolve().parents[2]
-SERVO_DIR = Path("/tmp/servo")
-DEMO_DB_DIR = Path("/tmp/fsgdb-servo-demo")
+TMP_PATHS = [
+    Path("/tmp/defuddle-demo-chromium-hook"),
+    Path("/tmp/defuddle-demo-close.html"),
+]
 
 
 def safe_remove(path: Path) -> None:
     resolved = path.resolve()
     if not str(resolved).startswith("/tmp/"):
         raise RuntimeError(f"refusing to delete non-/tmp path: {resolved}")
-    if resolved.exists():
-        shutil.rmtree(resolved)
+    if resolved.is_dir():
+        shutil.rmtree(resolved, ignore_errors=True)
+    else:
+        resolved.unlink(missing_ok=True)
 
 
 def main() -> int:
-    safe_remove(SERVO_DIR)
-    safe_remove(DEMO_DB_DIR)
-    DEMO_DB_DIR.mkdir(parents=True, exist_ok=True)
-    print(f"Reset demo state: removed {SERVO_DIR} and recreated {DEMO_DB_DIR}")
+    for path in TMP_PATHS:
+        safe_remove(path)
+    print("Reset defuddle demo temp state")
     return 0
 
 

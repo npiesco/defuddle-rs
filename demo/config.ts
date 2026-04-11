@@ -1,8 +1,8 @@
 /**
  * Demo configuration — paths, commands, and output artifacts.
  *
- * Modeled after the Duckcells demo config, but scoped to fsgdb's
- * terminal + VS Code + MCP investigation flow.
+ * The copied fsgdb scaffold is now retargeted to defuddle's six-surface demo:
+ * hook, browser extension, Rust crate, Python bindings, MCP, and close frame.
  */
 import { existsSync, readFileSync } from 'node:fs';
 import path from 'node:path';
@@ -46,17 +46,18 @@ export const AGENT_CLI_CMD = process.env.DEMO_AGENT_CLI_CMD
   ?? 'copilot';
 export const AGENT_SCENE_TIMEOUT_MS = Number(process.env.DEMO_AGENT_TIMEOUT_MS ?? '600000');
 
-export const RECORDING_PATH = path.join(OUTPUT_DIR, 'fsgdb_demo_silent.mp4');
+export const RECORDING_PATH = path.join(OUTPUT_DIR, 'defuddle_demo_silent.mp4');
 export const NARRATION_PATH = path.join(OUTPUT_DIR, 'narration.wav');
-export const FINAL_VIDEO_PATH = path.join(OUTPUT_DIR, 'fsgdb_demo_final.mp4');
+export const FINAL_VIDEO_PATH = path.join(OUTPUT_DIR, 'defuddle_demo_final.mp4');
 export const TIMELINE_PATH = path.join(OUTPUT_DIR, 'timeline.json');
 
 export const SEGMENTS = {
-  SETUP_SCAN: 'seg_01_setup_and_scan.mp4',
-  CLI: 'seg_02_cli.mp4',
-  VSCODE_QUERY: 'seg_03_vscode_query.mp4',
-  VSCODE_GRAPH: 'seg_04_vscode_graph.mp4',
-  AGENT: 'seg_05_agent_and_conclusion.mp4',
+  SETUP_SCAN: 'seg_01_hook.mp4',
+  CLI: 'seg_02_extension.mp4',
+  VSCODE_QUERY: 'seg_03_rust.mp4',
+  VSCODE_GRAPH: 'seg_04_python.mp4',
+  AGENT: 'seg_05_mcp.mp4',
+  CLOSE: 'seg_06_close.mp4',
 } as const;
 
 export const SPEECH_KEY = process.env.AZURE_SPEECH_KEY
