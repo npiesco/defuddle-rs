@@ -177,6 +177,7 @@ def main() -> int:
     last_seen_len = 0
     last_output_at = start_time
     trusted_sent = False
+    session_storage_sent = False
     trust_answer_pos = 0
     generic_confirm_sent = 0
     prompt_attempts = 0
@@ -267,6 +268,17 @@ def main() -> int:
                 continue
 
             if (
+                "Session storage" in recent
+                and "Keep on this device only" in recent
+            ) and not session_storage_sent:
+                send_keys(window_id, "1", "Return")
+                session_storage_sent = True
+                trust_answer_pos = len(recent)
+                print("\n[controller] answered session storage with option 1", file=sys.stderr)
+                time.sleep(0.5)
+                continue
+
+            if (
                 "Confirm folder trust" in recent
                 or "Do you trust the files in this folder?" in recent
             ) and not trusted_sent:
@@ -344,7 +356,7 @@ def main() -> int:
                 time.sleep(0.8)
                 continue
 
-            if demo_done_seen_at is not None and not exit_sent and now - demo_done_seen_at >= 60.0:
+            if demo_done_seen_at is not None and not exit_sent and now - demo_done_seen_at >= 5.0:
                 send_keys(window_id, "ctrl+c")
                 time.sleep(0.5)
                 send_keys(window_id, "ctrl+d")

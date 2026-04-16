@@ -28,11 +28,11 @@ DEMO_URL = os.environ.get(
 )
 
 SCENES: list[tuple[str, str, Path, str]] = [
-    ("seg_01", "Hook", SCRIPTS_DIR / "record_cli_scene.py", "Live SQLite page hook"),
-    ("seg_02", "Browser Extension", SCRIPTS_DIR / "record_webapp_scene.py", "Real installed extension side panel"),
-    ("seg_03", "Rust Crate", SCRIPTS_DIR / "record_tauri_scene.py", "Visible Rust crate consumer"),
-    ("seg_04", "Python Bindings", SCRIPTS_DIR / "record_vscode_scene.py", "Visible Python bindings consumer"),
-    ("seg_05", "MCP", SCRIPTS_DIR / "launch_and_seed_terminal.py", "Visible Copilot + MCP scene"),
+    ("seg_01", "Hook", SCRIPTS_DIR / "record_hook_scene.py", "Live SQLite page hook"),
+    ("seg_02", "Browser Extension", SCRIPTS_DIR / "record_extension_scene.py", "Real installed extension side panel"),
+    ("seg_03", "Rust Crate", SCRIPTS_DIR / "record_rust_scene.py", "Visible Rust crate consumer"),
+    ("seg_04", "Python Bindings", SCRIPTS_DIR / "record_python_scene.py", "Visible Python bindings consumer"),
+    ("seg_05", "MCP", SCRIPTS_DIR / "record_mcp_scene.py", "Visible Copilot + MCP scene"),
     ("seg_06", "Close", SCRIPTS_DIR / "record_close_scene.py", "Final comparison frame"),
 ]
 

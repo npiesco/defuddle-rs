@@ -1,0 +1,68 @@
+{
+  "generatedAt": "2026-04-11T10:09:26-0400",
+  "demoUrl": "https://sqlite.org/forum/forumpost/40a2358ad9241700?",
+  "scenes": [
+    {
+      "id": "seg_01",
+      "label": "Hook",
+      "script": "/home/npiesco/defuddle-rs/demo/scripts/record_hook_scene.py",
+      "notes": "Live SQLite page hook"
+    },
+    {
+      "id": "seg_02",
+      "label": "Browser Extension",
+      "script": "/home/npiesco/defuddle-rs/demo/scripts/record_extension_scene.py",
+      "notes": "Real installed extension side panel"
+    },
+    {
+      "id": "seg_03",
+      "label": "Rust Crate",
+      "script": "/home/npiesco/defuddle-rs/demo/scripts/record_rust_scene.py",
+      "notes": "Visible Rust crate consumer"
+    },
+    {
+      "id": "seg_04",
+      "label": "Python Bindings",
+      "script": "/home/npiesco/defuddle-rs/demo/scripts/record_python_scene.py",
+      "notes": "Visible Python bindings consumer"
+    },
+    {
+      "id": "seg_05",
+      "label": "MCP",
+      "script": "/home/npiesco/defuddle-rs/demo/scripts/record_mcp_scene.py",
+      "notes": "Visible Copilot + MCP scene"
+    },
+    {
+      "id": "seg_06",
+      "label": "Close",
+      "script": "/home/npiesco/defuddle-rs/demo/scripts/record_close_scene.py",
+      "notes": "Final comparison frame"
+    }
+  ],
+  "gates": [
+    {
+      "name": "python-tools",
+      "passed": true,
+      "detail": "python, display, and media tools are available",
+      "durationSeconds": 0.0
+    },
+    {
+      "name": "copilot-config",
+      "passed": true,
+      "detail": "Copilot trust and defuddle MCP config are in place",
+      "durationSeconds": 0.0
+    },
+    {
+      "name": "scene-scripts",
+      "passed": true,
+      "detail": "all six defuddle scene scripts are present",
+      "durationSeconds": 0.0
+    },
+    {
+      "name": "output-contract",
+      "passed": true,
+      "detail": "expected outputs: seg_01_hook.mp4, seg_02_extension.mp4, seg_03_rust.mp4, seg_04_python.mp4, seg_05_mcp.mp4, seg_06_close.mp4, defuddle_demo_silent.mp4, defuddle_demo_final.mp4",
+      "durationSeconds": 0.0
+    }
+  ]
+}

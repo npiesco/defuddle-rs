@@ -75,7 +75,7 @@ Supporting scripts live in `demo/scripts/`:
 - `reset_demo_state.py`
 - `start_copilot_session.py`
 - `open_agent_terminal.py`
-- `launch_and_seed_terminal.py`
+- `record_mcp_scene.py`
 
 ## Visible Surfaces
 
