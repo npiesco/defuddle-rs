@@ -1,79 +1,82 @@
 <div align="center">
   <h1>defuddle-rs</h1>
-  <p><strong>Web content extraction in Rust. Clean markdown out, noisy page chrome gone.</strong></p>
-
-  [![Rust](https://img.shields.io/badge/rust-1.85%2B-orange.svg)](https://www.rust-lang.org/)
-  [![License](https://img.shields.io/badge/license-MIT-blue.svg)](LICENSE)
-  [![MCP](https://img.shields.io/badge/MCP-4%20tools-brightgreen.svg)](MCP.md)
-  [![Python](https://img.shields.io/badge/python-UniFFI-green.svg)](bindings/python/)
-  [![Browser](https://img.shields.io/badge/browser-extension%20%2B%20WASM-purple.svg)](extension/)
-  [![Parity](https://img.shields.io/badge/defuddle-parity%20fixtures-success.svg)](PARITY.md)
+  <p><strong>Web extraction for real software surfaces. Clean article content in, page chrome out.</strong></p>
 </div>
 
-**Tech Stack:** Rust + dom_query + reqwest + UniFFI + RMCP + wasm-bindgen
+[![Rust](https://img.shields.io/badge/rust-1.85%2B-orange)](Cargo.toml)
+[![MCP](https://img.shields.io/badge/MCP-4%20tools-brightgreen)](MCP.md)
+[![Python](https://img.shields.io/badge/python-UniFFI-green)](bindings/python/)
+[![Browser](https://img.shields.io/badge/browser-extension%20%2B%20WASM-purple)](extension/)
+[![Parity](https://img.shields.io/badge/parity-upstream%20fixtures-success)](PARITY.md)
+[![License](https://img.shields.io/badge/license-MIT-blue)](LICENSE)
 
-> Clean-room Rust implementation of [defuddle](https://github.com/kepano/defuddle), exposed as a native crate, MCP server, Python package, browser extension, and WASM parser.
+**Rust + dom_query + reqwest + UniFFI + RMCP + wasm-bindgen**
 
----
+> Clean-room Rust implementation of [defuddle](https://github.com/kepano/defuddle), packaged for native applications, editor agents, browser capture flows, and Python consumers.
 
-## What Is This?
+Raw pages are full of chrome. `defuddle-rs` keeps the useful part: extracted metadata, cleaned HTML, cleaned markdown, and a normalized result shape that can be reused across real software surfaces.
 
-Most pages are mostly chrome: nav, sidebars, ads, footers, boilerplate, share widgets, and layout junk.
+It ships the same parser core as:
 
-`defuddle-rs` keeps the useful part:
+- a Rust crate
+- an MCP server
+- a Python package
+- a browser extension
+- a WASM parser for browser-side UIs
 
-- article or post body
-- metadata like title, author, published date, site, description, image
-- clean HTML
-- clean markdown
-- word count
-- schema.org payloads when present
+## Overview
 
-It does that locally in Rust. No Node runtime. No headless browser. No hosted parsing service.
+Most pages are not mostly content. They are wrappers around content.
 
-## Surfaces
+Navigation, sidebars, share widgets, footer junk, ad slots, hidden blocks, layout scaffolding, and repeated chrome all make the useful part harder to reuse.
 
-This repo ships the same extraction core across multiple surfaces:
+`defuddle-rs` removes that overhead and keeps what downstream tools actually want:
 
-- **Rust crate**: direct `parse` and `fetch_and_parse`
-- **MCP server**: `parse_html`, `fetch_and_parse_url`, `extract_metadata`, `extract_markdown`
-- **Python bindings**: UniFFI package under `bindings/python/`
-- **Browser extension**: capture the active tab into a side panel UI
-- **WASM parser**: local browser-side parsing for the extension and web app
+- **Article Body Extraction**: isolate the main readable content node
+- **Metadata Extraction**: title, author, date, site, description, image, language
+- **Markdown Conversion**: convert cleaned content into portable markdown
+- **Native Fetch + Parse**: fetch a URL directly or parse raw HTML
+- **MCP Surface**: expose parser operations to local AI tooling over stdio or HTTP
+- **Python Surface**: expose the same parser core to scripts and workflows through UniFFI
+- **Browser Surface**: capture the active tab into an extension side panel and parse locally
+- **WASM Surface**: run the parser in-browser for extension and app UIs
+
+There is no hosted parsing service here. No headless browser. No Node runtime requirement for the core parser.
 
 ## Architecture Overview
 
 ```mermaid
 flowchart TB
-    subgraph Clients
-        EXT["Browser Extension<br/>extension/"]
-        WEB["Browser App<br/>app/ + dist/"]
-        PY["Python<br/>bindings/python/"]
+    subgraph C1["Client Surfaces"]
+        EXT["Browser Extension<br/>side panel capture UI"]
+        WEB["Browser App<br/>HTML and URL workspace"]
+        PY["Python Consumer<br/>UniFFI package"]
         MCPCLIENT["MCP Client<br/>Copilot / Claude / Cursor"]
-        RUSTAPP["Rust Consumer"]
+        RUSTAPP["Rust Consumer<br/>native crate user"]
     end
 
-    subgraph Surface Layer
-        WASM["WASM Wrapper<br/>wasm_bindgen"]
-        PYAPI["UniFFI API<br/>src/python_api.rs"]
-        MCPSERVER["defuddle-mcp<br/>src/bin/defuddle-mcp.rs"]
-        CRATE["Rust Crate API<br/>src/lib.rs"]
+    subgraph C2["Surface Adapters"]
+        WASM["WASM Adapter<br/>parseJson export"]
+        PYAPI["Python API<br/>src/python_api.rs"]
+        MCPSERVER["MCP Server<br/>src/mcp.rs + defuddle-mcp"]
+        CRATE["Crate API<br/>src/lib.rs"]
     end
 
-    subgraph Core Pipeline
+    subgraph C3["Core Extraction Pipeline"]
         META["Metadata Extraction<br/>src/metadata.rs"]
-        SCORE["Content Scoring<br/>src/scoring.rs"]
+        STANDARDIZE["DOM Standardization<br/>src/standardize.rs"]
         REMOVE["Removal Pipeline<br/>src/removals.rs"]
+        SCORE["Content Scoring<br/>src/scoring.rs"]
         MD["Markdown Conversion<br/>src/markdown.rs"]
     end
 
-    subgraph Inputs
+    subgraph C4["Input Sources"]
         HTML["Raw HTML"]
-        URL["URL Fetch<br/>src/fetch.rs"]
+        FETCH["Native URL Fetch<br/>src/fetch.rs"]
     end
 
-    subgraph Output
-        RESULT["DefuddleResult<br/>title, metadata, html, markdown, word_count"]
+    subgraph C5["Outputs"]
+        RESULT["DefuddleResult<br/>metadata + html + markdown + word count"]
     end
 
     EXT --> WASM
@@ -86,53 +89,86 @@ flowchart TB
     PYAPI --> CRATE
     MCPSERVER --> CRATE
 
-    URL --> CRATE
     HTML --> CRATE
+    FETCH --> CRATE
 
     CRATE --> META
-    CRATE --> SCORE
+    CRATE --> STANDARDIZE
     CRATE --> REMOVE
+    CRATE --> SCORE
     CRATE --> MD
 
     META --> RESULT
-    SCORE --> RESULT
+    STANDARDIZE --> RESULT
     REMOVE --> RESULT
+    SCORE --> RESULT
     MD --> RESULT
+
+    style C1 fill:#e3f2fd,stroke:#1e88e5,stroke-width:2px,color:#111
+    style C2 fill:#ede7f6,stroke:#5e35b1,stroke-width:2px,color:#111
+    style C3 fill:#e8f5e9,stroke:#2e7d32,stroke-width:2px,color:#111
+    style C4 fill:#fff3e0,stroke:#ef6c00,stroke-width:2px,color:#111
+    style C5 fill:#fce4ec,stroke:#c2185b,stroke-width:2px,color:#111
 ```
 
-### Legend
+### Diagram Legend
 
-- **Clients**: where the parser is consumed
-- **Surface Layer**: transport or language bindings around the core crate
-- **Core Pipeline**: extraction stages inside Rust
-- **Inputs**: either raw HTML or native URL fetch
-- **Output**: a normalized `DefuddleResult`
+| Color | Layer | Meaning |
+|---|---|---|
+| Blue | Client Surfaces | Where people or tools consume the parser |
+| Purple | Surface Adapters | Language, transport, and runtime-specific wrappers |
+| Green | Core Extraction Pipeline | The Rust parser internals |
+| Orange | Input Sources | Raw HTML or native fetch entrypoints |
+| Pink | Outputs | Structured extraction result returned to callers |
+
+### Key Components
+
+**Parser Core:**
+- **Mutable DOM Pipeline**: uses `dom_query` to parse, mutate, score, and serialize pages
+- **Metadata Extraction**: collects page-level metadata before destructive cleanup
+- **Removal Pipeline**: exact selectors, partial selectors, hidden elements, and low-signal blocks
+- **Main Content Protection**: ancestor guards prevent removal passes from disconnecting the chosen content node
+- **Markdown Output**: preserves headings, tables, code blocks, lists, and links in a portable format
+
+**Runtime Surfaces:**
+- **Rust API**: direct `parse` and `fetch_and_parse`
+- **MCP Server**: parser operations available to local AI clients
+- **Python API**: same parser core exported via UniFFI
+- **WASM API**: browser-side parsing for extension and app interfaces
+
+**Browser Layer:**
+- **Extension Side Panel**: captures the active tab and parses it locally
+- **Browser App**: direct HTML and URL parsing interface using the same WASM core
 
 ## Extraction Pipeline
 
-The implementation follows the same broad shape as upstream `defuddle`:
+The parser follows the same general flow as upstream `defuddle`, but implemented natively in Rust:
 
 1. Parse HTML into a mutable DOM
-2. Extract metadata first
-3. Try any site-specific extraction path
-4. Locate the main content element
-5. Remove hidden elements
-6. Remove exact-selector junk
-7. Remove partial-selector junk
-8. Score and strip low-content blocks
-9. Avoid deleting ancestors of the chosen main content node
-10. Convert the cleaned result to markdown
+2. Extract metadata and page-level signals
+3. Standardize the document shape
+4. Try site-specific extraction paths where available
+5. Identify the main content candidate
+6. Remove hidden and explicit junk nodes
+7. Remove partial-match junk nodes
+8. Score remaining blocks for content density
+9. Protect main-content ancestors during cleanup
+10. Convert the final cleaned content to markdown
 
-That ancestor protection is critical. It prevents removal passes from disconnecting the actual article body.
+That ancestor protection is one of the critical behavioral details. It prevents an over-broad removal selector from deleting the parent chain that still contains the actual article.
 
 ## Quick Start
 
-### Rust
+### 1. Rust Crate
 
 ```rust
 use defuddle_rs::Defuddle;
 
-let html = reqwest::get("https://example.com/article").await?.text().await?;
+let html = reqwest::get("https://example.com/article")
+    .await?
+    .text()
+    .await?;
+
 let result = Defuddle::parse(&html, "https://example.com/article")?;
 
 println!("{}", result.title);
@@ -140,29 +176,45 @@ println!("{}", result.content_markdown);
 println!("{}", result.word_count);
 ```
 
-### Build
+Build and test:
 
 ```bash
 cargo build --release
 cargo test
 ```
 
-### MCP
+### 2. MCP Server
+
+Build:
 
 ```bash
 cargo build --release --bin defuddle-mcp
+```
+
+Run over stdio:
+
+```bash
 target/release/defuddle-mcp stdio
 ```
 
-HTTP mode:
+Run over HTTP:
 
 ```bash
 target/release/defuddle-mcp http --bind 127.0.0.1:8080 --path /mcp
 ```
 
-See [MCP.md](MCP.md) for transport details and config examples.
+Current tools:
 
-### Python
+- `parse_html`
+- `fetch_and_parse_url`
+- `extract_metadata`
+- `extract_markdown`
+
+See [MCP.md](MCP.md) for config and transport details.
+
+### 3. Python Bindings
+
+Generate and install the UniFFI package:
 
 ```bash
 cargo build --release
@@ -182,7 +234,7 @@ Smoke test:
 /tmp/defuddle-py-uv/bin/python -c "from pathlib import Path; from defuddle import DefuddleParser; html = Path('tests/fixtures/example.html').read_text(); parser = DefuddleParser(); result = parser.extract_markdown(html, 'https://example.com'); print(result.title); print(result.word_count)"
 ```
 
-### Browser Extension
+### 4. Browser Extension
 
 Build the WASM bundle and extension assets:
 
@@ -191,22 +243,23 @@ npm run build:wasm
 npm run build:extension
 ```
 
-Load the unpacked extension from:
+Load unpacked from:
 
 ```text
 extension/
 ```
 
-Extension-specific usage is documented in [extension/README.md](extension/README.md).
+Extension-specific details are in [extension/README.md](extension/README.md).
 
-## MCP Tools
+### 5. Browser App
 
-Current parser-facing MCP tools:
+Build the static app:
 
-- `parse_html`
-- `fetch_and_parse_url`
-- `extract_metadata`
-- `extract_markdown`
+```bash
+npm run build
+```
+
+This emits `dist/`.
 
 ## API Surface
 
@@ -222,7 +275,7 @@ Current parser-facing MCP tools:
 - `DefuddleParser.extract_metadata(html, url)`
 - `DefuddleParser.extract_markdown(html, url)`
 
-## Result Shape
+### Result Shape
 
 `DefuddleResult` includes:
 
@@ -238,30 +291,31 @@ Current parser-facing MCP tools:
 - `word_count`
 - `schema_org`
 
+## Repository Layout
+
+```text
+defuddle-rs/
+├── src/                    # Rust parser core, MCP server, Python API
+├── tests/                  # crate, MCP, HTTPS, and Python integration tests
+├── bindings/python/        # UniFFI Python package
+├── extension/              # browser extension side panel
+├── packages/defuddle-wasm/ # WASM wrapper package
+├── app/                    # browser app
+├── demo/                   # demo pipeline and assets
+├── MCP.md                  # MCP setup and transport docs
+├── PARITY.md               # parity notes against upstream fixtures
+└── README.md
+```
+
 ## Parity
 
-The repo includes fixture-based parity validation against upstream `defuddle`, including larger pages like Hacker News, MDN, Wikipedia, and GitHub.
+This repo includes fixture-based parity validation against upstream `defuddle`, including large and awkward pages like Hacker News threads, MDN docs, Wikipedia, GitHub, and blog content.
 
 See:
 
 - [PARITY.md](PARITY.md)
 - [tests/defuddle_test.rs](tests/defuddle_test.rs)
 
-## Repository Layout
-
-```text
-defuddle-rs/
-├── src/                 # Rust extraction core, MCP server, Python API
-├── tests/               # crate + MCP + Python integration tests
-├── bindings/python/     # UniFFI Python package
-├── extension/           # browser extension side panel UI
-├── packages/defuddle-wasm/  # WASM package wrapper
-├── app/                 # browser app
-├── demo/                # demo pipeline and assets
-├── MCP.md               # MCP usage and config
-└── PARITY.md            # fixture parity notes
-```
-
 ## Clean-Room Note
 
-This is a clean-room Rust implementation. The upstream TypeScript project is used as a behavioral reference, not as a direct line-by-line translation.
+This is a clean-room Rust implementation. Upstream `defuddle` is used as a behavioral and architectural reference, but the code here is not a direct line-by-line translation of the TypeScript source.
