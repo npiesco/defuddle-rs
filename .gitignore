@@ -11,3 +11,5 @@ data/
 auto/
 __pycache__/
 demo/.venv/
+.codex
+bindings/python/defuddle/*.so
