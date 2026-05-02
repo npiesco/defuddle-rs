@@ -9,3 +9,5 @@ dist/
 *.db.*
 data/
 auto/
+__pycache__/
+demo/.venv/
