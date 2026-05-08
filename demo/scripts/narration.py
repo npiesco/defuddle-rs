@@ -41,19 +41,17 @@ SEGMENT_NARRATION = [
         "file": "seg_05_mcp.mp4",
         "label": "MCP",
         "text": (
-            "Fourth surface, most interesting: MCP. Through Model Context "
-            "Protocol, agents like Copilot call defuddle as tool. Agent invokes "
-            "fetch and parse on live URL, gets back structured metadata, works from "
-            "cleaned content rather than raw chrome. "
-            "Watch Copilot pull title, site, word count, markdown "
-            "preview — all from single tool call. Can also use extract metadata for "
-            "metadata-only pass, or extract markdown to convert HTML it already has. "
-            "Agent never deals with navigation, scripts, layout. Works on "
-            "same clean structure extension and crate produced. Same parser, "
-            "different consumer. Agent gets high-signal context instead of five "
-            "thousand line HTML document. This is what makes defuddle useful for AI: "
-            "deterministic extraction, identical across surfaces, exposed through "
-            "standard protocol modern agents already speak."
+            "Fourth surface: MCP. Through Model Context Protocol, agents like "
+            "Copilot call defuddle as tool. Agent invokes fetch and parse on "
+            "live URL, gets back structured metadata, works from cleaned "
+            "content rather than raw chrome. Copilot pulls title, site, word "
+            "count, markdown preview — all from single tool call. Can also "
+            "use extract metadata for metadata-only pass, or extract markdown "
+            "to convert HTML it already has. Agent works on same clean "
+            "structure extension and crate produced. Gets high-signal context "
+            "instead of five thousand line HTML document. Deterministic "
+            "extraction, identical across surfaces, exposed through standard "
+            "protocol modern agents already speak."
         ),
     },
     {

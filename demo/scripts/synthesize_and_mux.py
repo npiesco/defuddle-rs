@@ -11,7 +11,6 @@ from __future__ import annotations
 import os
 import subprocess
 import sys
-import tempfile
 from pathlib import Path
 
 DEMO_DIR = Path(__file__).resolve().parent.parent
@@ -66,21 +65,63 @@ def find_segments() -> list[Path]:
     return segments
 
 
+def _probe_dimensions(path: Path) -> tuple[int, int]:
+    result = run(
+        [
+            "ffprobe", "-v", "error", "-select_streams", "v:0",
+            "-show_entries", "stream=width,height", "-of", "csv=p=0:s=x",
+            str(path),
+        ],
+        timeout=30,
+    )
+    w, h = result.stdout.strip().split("x")
+    return int(w), int(h)
+
+
 def concat_segments(segments: list[Path], dst: Path) -> float:
-    """Concatenate segments using ffmpeg's concat demuxer (no re-encode)."""
-    with tempfile.NamedTemporaryFile(mode="w", suffix=".txt", delete=False) as f:
-        list_path = Path(f.name)
-        for seg in segments:
-            f.write(f"file '{seg}'\n")
-    try:
-        run([
-            "ffmpeg", "-y",
-            "-f", "concat", "-safe", "0", "-i", str(list_path),
-            "-c", "copy", "-an",
-            str(dst),
-        ])
-    finally:
-        list_path.unlink(missing_ok=True)
+    """Concatenate segments onto a common canvas using the concat *filter*.
+
+    The demo segments are recorded at different resolutions (terminals, browser,
+    VS Code). Using the concat demuxer with ``-c copy`` forces every segment to
+    inherit the first segment's stream dimensions, which causes the player to
+    stretch/squash later segments and warps the text. Instead, scale each
+    segment to fit inside a shared canvas while preserving aspect ratio, then
+    pad with black bars. This guarantees no warping.
+    """
+    dims = [_probe_dimensions(seg) for seg in segments]
+    target_w = max(w for w, _ in dims)
+    target_h = max(h for _, h in dims)
+    target_w += target_w % 2
+    target_h += target_h % 2
+
+    cmd: list[str] = ["ffmpeg", "-y"]
+    for seg in segments:
+        cmd += ["-i", str(seg)]
+
+    filter_parts: list[str] = []
+    labels: list[str] = []
+    for idx in range(len(segments)):
+        label = f"v{idx}"
+        filter_parts.append(
+            f"[{idx}:v]scale={target_w}:{target_h}:"
+            f"force_original_aspect_ratio=decrease:flags=lanczos,"
+            f"pad={target_w}:{target_h}:(ow-iw)/2:(oh-ih)/2:color=black,"
+            f"setsar=1,fps=30,format=yuv420p[{label}]"
+        )
+        labels.append(f"[{label}]")
+    filter_parts.append(
+        f"{''.join(labels)}concat=n={len(segments)}:v=1:a=0[outv]"
+    )
+    filter_complex = ";".join(filter_parts)
+
+    cmd += [
+        "-filter_complex", filter_complex,
+        "-map", "[outv]", "-an",
+        "-c:v", "libx264", "-crf", "18", "-preset", "medium",
+        "-pix_fmt", "yuv420p", "-movflags", "+faststart",
+        str(dst),
+    ]
+    run(cmd, timeout=1800)
     return get_duration(dst)
 
 

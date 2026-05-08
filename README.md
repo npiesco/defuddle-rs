@@ -1,7 +1,7 @@
 <div align="center">
-  <h1>defuddle-rs</h1>
-  <p><strong>Web extraction for real software surfaces. Clean article content in, page chrome out.</strong></p>
-</div>
+  <img src="defuddle-rs-logo.png" alt="defuddle-rs" width="220">
+  <br><br>
+  <p><strong>Rust + dom_query + reqwest + UniFFI + RMCP + wasm-bindgen</strong></p>
 
 [![Rust](https://img.shields.io/badge/rust-1.85%2B-orange)](Cargo.toml)
 [![MCP](https://img.shields.io/badge/MCP-4%20tools-brightgreen)](MCP.md)
@@ -9,10 +9,15 @@
 [![Browser](https://img.shields.io/badge/browser-extension%20%2B%20WASM-purple)](extension/)
 [![Parity](https://img.shields.io/badge/parity-upstream%20fixtures-success)](PARITY.md)
 [![License](https://img.shields.io/badge/license-MIT-blue)](LICENSE)
-
-**Rust + dom_query + reqwest + UniFFI + RMCP + wasm-bindgen**
+</div>
 
 > Clean-room Rust implementation of [defuddle](https://github.com/kepano/defuddle), packaged for native applications, editor agents, browser capture flows, and Python consumers.
+
+# defuddle-rs
+
+[![defuddle-rs Demo](https://img.youtube.com/vi/826w7faRFDQ/hqdefault.jpg)](https://youtu.be/826w7faRFDQ)
+
+Click the thumbnail above to watch the demo video on YouTube.
 
 Raw pages are full of chrome. `defuddle-rs` keeps the useful part: extracted metadata, cleaned HTML, cleaned markdown, and a normalized result shape that can be reused across real software surfaces.
 
