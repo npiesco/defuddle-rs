@@ -168,6 +168,20 @@ impl DefuddleMcpServer {
         let parsed = Defuddle::parse(&html, &url).map_err(defuddle_error_to_mcp)?;
         Ok(Json(parsed.into()))
     }
+
+    #[tool(
+        name = "fetch_url_markdown",
+        description = "Fetch a URL over HTTP and return markdown plus lightweight metadata. Excludes content_html and schema_org to stay within tool-output size limits."
+    )]
+    pub async fn fetch_url_markdown(
+        &self,
+        Parameters(FetchAndParseUrlRequest { url }): Parameters<FetchAndParseUrlRequest>,
+    ) -> Result<Json<ExtractMarkdownResponse>, ErrorData> {
+        let parsed = Defuddle::fetch_and_parse(&url)
+            .await
+            .map_err(defuddle_error_to_mcp)?;
+        Ok(Json(parsed.into()))
+    }
 }
 
 #[tool_handler(router = self.tool_router)]

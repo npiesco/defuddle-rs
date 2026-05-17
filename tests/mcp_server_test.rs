@@ -93,6 +93,7 @@ async fn mcp_lists_expected_defuddle_tools() -> Result<(), Box<dyn Error>> {
             "extract_markdown".to_string(),
             "extract_metadata".to_string(),
             "fetch_and_parse_url".to_string(),
+            "fetch_url_markdown".to_string(),
             "parse_html".to_string(),
         ])
     );
