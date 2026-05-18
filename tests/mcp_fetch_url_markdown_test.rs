@@ -196,3 +196,39 @@ async fn fetch_and_save_markdown_writes_file_and_returns_confirmation() -> Resul
     client.cancel().await?;
     Ok(())
 }
+
+#[tokio::test]
+async fn fetch_and_save_markdown_creates_missing_parent_dirs() -> Result<(), Box<dyn Error>> {
+    let client = spawn_client_and_server().await?;
+    let url = spawn_fixture_server("fasterthanlime.html").await?;
+    let dir = tempdir()?;
+    // nested/deep does not exist — tool must create it
+    let output_path = dir.path().join("nested").join("deep").join("out.md");
+
+    let result = client
+        .call_tool(
+            CallToolRequestParams::new("fetch_and_save_markdown").with_arguments(
+                json!({
+                    "url": url,
+                    "output_path": output_path.to_str().unwrap()
+                })
+                .as_object()
+                .unwrap()
+                .clone(),
+            ),
+        )
+        .await?;
+
+    assert_eq!(
+        result.is_error,
+        Some(false),
+        "tool must succeed even when parent dirs are missing"
+    );
+    assert!(
+        output_path.exists(),
+        "file must exist after tool call with missing parent dirs"
+    );
+
+    client.cancel().await?;
+    Ok(())
+}

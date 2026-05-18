@@ -214,6 +214,11 @@ impl DefuddleMcpServer {
         frontmatter.push_str("---\n\n");
         let content = format!("{frontmatter}{}", parsed.content_markdown);
         let bytes = content.len();
+        if let Some(parent) = std::path::Path::new(&output_path).parent() {
+            tokio::fs::create_dir_all(parent).await.map_err(|e| {
+                ErrorData::internal_error(format!("mkdir {}: {e}", parent.display()), None)
+            })?;
+        }
         tokio::fs::write(&output_path, &content)
             .await
             .map_err(|e| ErrorData::internal_error(format!("write {output_path}: {e}"), None))?;
