@@ -5,6 +5,7 @@ use rmcp::{
     model::{CallToolRequestParams, ClientInfo},
 };
 use serde_json::json;
+use tempfile::tempdir;
 
 #[derive(Debug, Clone, Default)]
 struct DummyClient;
@@ -129,6 +130,48 @@ async fn fetch_url_markdown_fits_inline_for_typical_article() -> Result<(), Box<
         text.len() < 25_000,
         "rust_blog markdown is {} bytes, exceeds 25 KB inline threshold",
         text.len()
+    );
+
+    client.cancel().await?;
+    Ok(())
+}
+
+#[tokio::test]
+async fn fetch_and_save_markdown_writes_file_and_returns_confirmation() -> Result<(), Box<dyn Error>>
+{
+    let client = spawn_client_and_server().await?;
+    let url = spawn_fixture_server("fasterthanlime.html").await?;
+    let dir = tempdir()?;
+    let output_path = dir.path().join("out.md");
+
+    let result = client
+        .call_tool(
+            CallToolRequestParams::new("fetch_and_save_markdown").with_arguments(
+                json!({
+                    "url": url,
+                    "output_path": output_path.to_str().unwrap()
+                })
+                .as_object()
+                .unwrap()
+                .clone(),
+            ),
+        )
+        .await?;
+
+    assert_eq!(result.is_error, Some(false));
+
+    let written = std::fs::read_to_string(&output_path)?;
+    assert!(!written.is_empty(), "written file must not be empty");
+
+    let confirmation = first_text(&result);
+    assert!(
+        confirmation.len() < 200,
+        "confirmation should be short, not the full markdown ({} bytes)",
+        confirmation.len()
+    );
+    assert!(
+        confirmation.contains("Saved"),
+        "confirmation should say Saved, got: {confirmation}"
     );
 
     client.cancel().await?;

@@ -31,6 +31,12 @@ pub struct FetchAndParseUrlRequest {
 }
 
 #[derive(Debug, Clone, Serialize, Deserialize, JsonSchema)]
+pub struct FetchAndSaveMarkdownRequest {
+    pub url: String,
+    pub output_path: String,
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize, JsonSchema)]
 pub struct ExtractMetadataResponse {
     pub title: String,
     pub author: Option<String>,
@@ -172,6 +178,26 @@ impl DefuddleMcpServer {
     ) -> Result<Json<ExtractMarkdownResponse>, ErrorData> {
         let parsed = Defuddle::parse(&html, &url).map_err(defuddle_error_to_mcp)?;
         Ok(Json(parsed.into()))
+    }
+
+    #[tool(
+        name = "fetch_and_save_markdown",
+        description = "Fetch a URL over HTTP, extract markdown, and write it directly to output_path on disk. Returns a short confirmation — no markdown in the response."
+    )]
+    pub async fn fetch_and_save_markdown(
+        &self,
+        Parameters(FetchAndSaveMarkdownRequest { url, output_path }): Parameters<
+            FetchAndSaveMarkdownRequest,
+        >,
+    ) -> Result<String, ErrorData> {
+        let parsed = Defuddle::fetch_and_parse(&url)
+            .await
+            .map_err(defuddle_error_to_mcp)?;
+        let bytes = parsed.content_markdown.len();
+        tokio::fs::write(&output_path, &parsed.content_markdown)
+            .await
+            .map_err(|e| ErrorData::internal_error(format!("write {output_path}: {e}"), None))?;
+        Ok(format!("Saved {bytes} bytes to {output_path}"))
     }
 
     #[tool(
