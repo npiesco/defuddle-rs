@@ -162,6 +162,21 @@ async fn fetch_and_save_markdown_writes_file_and_returns_confirmation() -> Resul
 
     let written = std::fs::read_to_string(&output_path)?;
     assert!(!written.is_empty(), "written file must not be empty");
+    assert!(
+        written.starts_with("---\n"),
+        "file must start with YAML frontmatter, got: {:?}",
+        &written[..written.len().min(40)]
+    );
+    assert!(
+        written.contains("title:"),
+        "frontmatter must include title field"
+    );
+    // Frontmatter block must close before the markdown body
+    let after_open = &written[4..];
+    assert!(
+        after_open.contains("\n---\n"),
+        "frontmatter must be closed with ---"
+    );
 
     let confirmation = first_text(&result);
     assert!(

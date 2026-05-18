@@ -193,8 +193,22 @@ impl DefuddleMcpServer {
         let parsed = Defuddle::fetch_and_parse(&url)
             .await
             .map_err(defuddle_error_to_mcp)?;
-        let bytes = parsed.content_markdown.len();
-        tokio::fs::write(&output_path, &parsed.content_markdown)
+        let mut frontmatter = String::from("---\n");
+        frontmatter.push_str(&format!("title: {:?}\n", parsed.title));
+        if let Some(v) = &parsed.author {
+            frontmatter.push_str(&format!("author: {:?}\n", v));
+        }
+        if let Some(v) = &parsed.published {
+            frontmatter.push_str(&format!("published: {:?}\n", v));
+        }
+        if let Some(v) = &parsed.site {
+            frontmatter.push_str(&format!("site: {:?}\n", v));
+        }
+        frontmatter.push_str(&format!("source: {:?}\n", url));
+        frontmatter.push_str("---\n\n");
+        let content = format!("{frontmatter}{}", parsed.content_markdown);
+        let bytes = content.len();
+        tokio::fs::write(&output_path, &content)
             .await
             .map_err(|e| ErrorData::internal_error(format!("write {output_path}: {e}"), None))?;
         Ok(format!("Saved {bytes} bytes to {output_path}"))
