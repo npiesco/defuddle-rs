@@ -193,7 +193,13 @@ impl DefuddleMcpServer {
         let parsed = Defuddle::fetch_and_parse(&url)
             .await
             .map_err(defuddle_error_to_mcp)?;
+        let id = std::path::Path::new(&output_path)
+            .file_stem()
+            .and_then(|s| s.to_str())
+            .unwrap_or(&output_path)
+            .to_owned();
         let mut frontmatter = String::from("---\n");
+        frontmatter.push_str(&format!("id: {id}\n"));
         frontmatter.push_str(&format!("title: {:?}\n", parsed.title));
         if let Some(v) = &parsed.author {
             frontmatter.push_str(&format!("author: {:?}\n", v));

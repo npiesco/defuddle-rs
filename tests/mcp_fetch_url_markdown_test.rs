@@ -171,6 +171,10 @@ async fn fetch_and_save_markdown_writes_file_and_returns_confirmation() -> Resul
         written.contains("title:"),
         "frontmatter must include title field"
     );
+    assert!(
+        written.contains("id:"),
+        "frontmatter must include id field for watcher registration"
+    );
     // Frontmatter block must close before the markdown body
     let after_open = &written[4..];
     assert!(
