@@ -66,8 +66,17 @@ async fn spawn_fixture_server(fixture_name: &'static str) -> Result<String, Box<
     Ok(format!("http://{address}/page"))
 }
 
+fn first_text(result: &rmcp::model::CallToolResult) -> &str {
+    result
+        .content
+        .first()
+        .and_then(|content| content.raw.as_text())
+        .map(|text| text.text.as_str())
+        .expect("tool result should include text content")
+}
+
 #[tokio::test]
-async fn fetch_url_markdown_returns_markdown_shape() -> Result<(), Box<dyn Error>> {
+async fn fetch_url_markdown_returns_plain_text_not_json() -> Result<(), Box<dyn Error>> {
     let client = spawn_client_and_server().await?;
     let url = spawn_fixture_server("fasterthanlime.html").await?;
 
@@ -80,32 +89,46 @@ async fn fetch_url_markdown_returns_markdown_shape() -> Result<(), Box<dyn Error
 
     assert_eq!(result.is_error, Some(false));
 
-    let structured = result
-        .structured_content
-        .clone()
-        .expect("fetch_url_markdown should return structured content");
-
-    // Must not contain full-HTML or schema_org bloat fields
+    // Must NOT return structured_content — plain text only avoids the CLI's /tmp save
     assert!(
-        structured.get("content_html").is_none(),
-        "fetch_url_markdown must not include content_html"
-    );
-    assert!(
-        structured.get("schema_org").is_none(),
-        "fetch_url_markdown must not include schema_org"
+        result.structured_content.is_none(),
+        "fetch_url_markdown must return plain text, not Json<T>"
     );
 
-    // Must contain non-empty markdown content
-    let markdown = structured["content_markdown"]
-        .as_str()
-        .expect("content_markdown should be a string");
-    assert!(!markdown.is_empty(), "content_markdown must not be empty");
+    let text = first_text(&result);
+    assert!(!text.is_empty(), "content_markdown must not be empty");
 
-    // Entire JSON envelope must fit within Copilot's 50 KB tool-output cap
-    let envelope_bytes = serde_json::to_vec(&structured)?.len();
+    // Must be plain markdown, not a JSON object literal
     assert!(
-        envelope_bytes < 50_000,
-        "response envelope is {envelope_bytes} bytes, exceeds 50 KB cap"
+        serde_json::from_str::<serde_json::Value>(text)
+            .map(|v| !v.is_object())
+            .unwrap_or(true),
+        "text content must not be a JSON object"
+    );
+
+    client.cancel().await?;
+    Ok(())
+}
+
+#[tokio::test]
+async fn fetch_url_markdown_fits_inline_for_typical_article() -> Result<(), Box<dyn Error>> {
+    let client = spawn_client_and_server().await?;
+    // rust_blog.html is a typical article-length page (~19 KB HTML)
+    let url = spawn_fixture_server("rust_blog.html").await?;
+
+    let result = client
+        .call_tool(
+            CallToolRequestParams::new("fetch_url_markdown")
+                .with_arguments(json!({ "url": url }).as_object().unwrap().clone()),
+        )
+        .await?;
+
+    assert_eq!(result.is_error, Some(false));
+    let text = first_text(&result);
+    assert!(
+        text.len() < 25_000,
+        "rust_blog markdown is {} bytes, exceeds 25 KB inline threshold",
+        text.len()
     );
 
     client.cancel().await?;

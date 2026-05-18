@@ -9,6 +9,33 @@ use serde_json::json;
 
 use defuddle_rs::DefuddleResult;
 
+fn no_boolean_schemas(value: &serde_json::Value, path: &str) -> Vec<String> {
+    let mut violations = Vec::new();
+    match value {
+        serde_json::Value::Bool(_) => {
+            violations.push(format!(
+                "{path}: boolean schema (true/false) — Copilot rejects these"
+            ));
+        }
+        serde_json::Value::Object(map) => {
+            for (k, v) in map {
+                no_boolean_schemas(v, &format!("{path}.{k}"))
+                    .into_iter()
+                    .for_each(|v| violations.push(v));
+            }
+        }
+        serde_json::Value::Array(arr) => {
+            for (i, v) in arr.iter().enumerate() {
+                no_boolean_schemas(v, &format!("{path}[{i}]"))
+                    .into_iter()
+                    .for_each(|v| violations.push(v));
+            }
+        }
+        _ => {}
+    }
+    violations
+}
+
 #[derive(Debug, Clone, Default)]
 struct DummyClient;
 
@@ -76,6 +103,30 @@ fn first_text(result: &rmcp::model::CallToolResult) -> &str {
         .and_then(|content| content.raw.as_text())
         .map(|text| text.text.as_str())
         .expect("tool result should include text content")
+}
+
+#[tokio::test]
+async fn tool_output_schemas_contain_no_boolean_schemas() -> Result<(), Box<dyn Error>> {
+    let client = spawn_client_and_server().await?;
+    let tools = client.peer().list_all_tools().await?;
+
+    let mut all_violations: Vec<String> = Vec::new();
+    for tool in &tools {
+        if let Some(schema) = &tool.output_schema {
+            let v = serde_json::to_value(schema.as_ref()).unwrap();
+            let violations = no_boolean_schemas(&v, &format!("tool({}).outputSchema", tool.name));
+            all_violations.extend(violations);
+        }
+    }
+
+    assert!(
+        all_violations.is_empty(),
+        "Boolean schemas found in output schemas (break Copilot renderer):\n{}",
+        all_violations.join("\n")
+    );
+
+    client.cancel().await?;
+    Ok(())
 }
 
 #[tokio::test]

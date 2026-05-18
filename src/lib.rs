@@ -36,7 +36,12 @@ pub struct DefuddleResult {
     pub content_html: String,
     pub content_markdown: String,
     pub word_count: usize,
+    #[schemars(schema_with = "schema_org_schema")]
     pub schema_org: Option<serde_json::Value>,
+}
+
+fn schema_org_schema(_: &mut schemars::SchemaGenerator) -> schemars::Schema {
+    schemars::json_schema!({"anyOf": [{"type": "object", "additionalProperties": {}}, {"type": "null"}]})
 }
 
 pub struct Defuddle;

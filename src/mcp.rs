@@ -13,6 +13,10 @@ use rmcp::{
 use serde::{Deserialize, Serialize};
 use url::Url;
 
+fn nullable_object_schema(_: &mut rmcp::schemars::SchemaGenerator) -> rmcp::schemars::Schema {
+    schemars::json_schema!({"anyOf": [{"type": "object", "additionalProperties": {}}, {"type": "null"}]})
+}
+
 use crate::{Defuddle, DefuddleError, DefuddleResult};
 
 #[derive(Debug, Clone, Serialize, Deserialize, JsonSchema)]
@@ -35,6 +39,7 @@ pub struct ExtractMetadataResponse {
     pub description: Option<String>,
     pub image: Option<String>,
     pub language: Option<String>,
+    #[schemars(schema_with = "nullable_object_schema")]
     pub schema_org: Option<serde_json::Value>,
 }
 
@@ -171,16 +176,16 @@ impl DefuddleMcpServer {
 
     #[tool(
         name = "fetch_url_markdown",
-        description = "Fetch a URL over HTTP and return markdown plus lightweight metadata. Excludes content_html and schema_org to stay within tool-output size limits."
+        description = "Fetch a URL over HTTP and return the article as plain markdown text. Smaller than fetch_and_parse_url — stays within inline display limits."
     )]
     pub async fn fetch_url_markdown(
         &self,
         Parameters(FetchAndParseUrlRequest { url }): Parameters<FetchAndParseUrlRequest>,
-    ) -> Result<Json<ExtractMarkdownResponse>, ErrorData> {
+    ) -> Result<String, ErrorData> {
         let parsed = Defuddle::fetch_and_parse(&url)
             .await
             .map_err(defuddle_error_to_mcp)?;
-        Ok(Json(parsed.into()))
+        Ok(parsed.content_markdown)
     }
 }
 
